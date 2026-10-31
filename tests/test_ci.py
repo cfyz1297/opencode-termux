@@ -85,6 +85,12 @@ class ReleaseNotesTests(unittest.TestCase):
         self.assertIn("abc1234 build: change", notes)
         self.assertNotIn("重新发布", notes)
 
+    def test_lists_the_native_versions_it_was_built_with(self):
+        manifest = dict(MANIFEST, natives={"opentui": {"version": "0.8.0"}, "fff": {"version": "0.10.5"},
+                                           "rust_pty": {"version": "0.4.11"}})
+        notes = self.module.release_notes(manifest, "v1.2.4", "c" * 40, "-", "")
+        self.assertIn("OpenTUI 0.8.0 · FFF 0.10.5 · bun-pty 0.4.11", notes)
+
     def test_reports_bionic_acceptance(self):
         notes = self.module.release_notes(MANIFEST, "v1.2.4", "c" * 40, "-", "")
         self.assertIn("从 OpenCode 源码编译", notes)
@@ -238,8 +244,9 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("make verify", self.script)
         self.assertIn("make fetch-source", self.workflow)
         self.assertIn("make compile", self.workflow)
-        natives, compile_, verify = (self.workflow.index(step) for step in (
-            "bionic-build.sh natives", "make compile", "bionic-build.sh verify"))
+        resolved, natives, compile_, verify = (self.workflow.index(step) for step in (
+            "make resolve-natives", "bionic-build.sh natives", "make compile", "bionic-build.sh verify"))
+        self.assertLess(resolved, natives)
         self.assertLess(natives, compile_)
         self.assertLess(compile_, verify)
         self.assertIn('assert doc["tui_smoke"] == "pass"', self.workflow)

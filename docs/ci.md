@@ -25,9 +25,14 @@ ubuntu-24.04-arm GitHub runner
     └── package
 ```
 
+Before anything is built, `make resolve-natives` reads the native dependency
+versions and the Bun version from the OpenCode source being built (its
+`bun.lock` and `package.json`) into `work/natives.json`; nothing native is
+pinned in this repository (see [native-assets.md](native-assets.md#版本从哪来)).
 The Termux-built assets (watcher, FFF, bun-pty and the exported sysroot) are
-cached under a key that hashes every input they are built from: `versions.json`,
-their scripts, patches and smoke tests. A run whose inputs match an earlier one
+cached under a key that hashes every input they are built from: their resolved
+entries in `work/natives.json`, `versions.json`, their scripts, patches and
+smoke tests. A run whose inputs match an earlier one
 restores them and only runs the tests in that phase; any change rebuilds them.
 
 OpenCode is compiled on the runner because the Android Bun bakes

@@ -10,8 +10,11 @@ for command_name in curl proot-distro clang; do
   command -v "$command_name" >/dev/null || { echo "build-fff: $command_name is required" >&2; exit 1; }
 done
 
+# work/natives.json: what tools/resolve_natives.py found for the OpenCode source (make resolve-natives).
+NATIVES="${NATIVES_JSON:-$ROOT/work/natives.json}"
+[ -f "$NATIVES" ] || { echo "build-fff: $NATIVES is missing; run make resolve-natives" >&2; exit 1; }
 read -r VERSION SOURCE_URL SOURCE_SHA < <(
-  python3 - "$ROOT/versions.json" <<'PY'
+  python3 - "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))["fff"]
 print(x["version"], x["source_url"], x["source_sha256"])

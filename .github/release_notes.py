@@ -24,6 +24,11 @@ def release_notes(manifest, tag, commit, predecessor, changelog):
     ver = m.get("opencode", "?")
     bun = m.get("base_bun") or {}
     source = m.get("source") or {}
+    names = {"opentui": "OpenTUI", "fff": "FFF", "watcher": "watcher", "rust_pty": "bun-pty",
+             "opencode_pty": "opencode-pty"}
+    natives = m.get("natives") or {}
+    components = " · ".join(f"{label} {natives[key]['version']}" for key, label in names.items()
+                            if key in natives)
     accepted = (
         m.get("release_eligible") is True
         and m.get("tui_smoke") == "pass"
@@ -64,6 +69,7 @@ def release_notes(manifest, tag, commit, predecessor, changelog):
 | OpenCode 源码 | `{source.get("tag", "?")}` · `{source.get("commit", "?")[:12]}` |
 | opencode 二进制 SHA-256 | `{m.get("output_sha256", "?")}` |
 | Bun 底座 | `{bun.get("version", "?")}` |
+| 原生组件（跟随 OpenCode 的 bun.lock） | {components or "?"} |
 | 工具链提交 | `{commit[:12] or "?"}` |
 
 {scope}

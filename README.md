@@ -59,7 +59,7 @@ bun build --compile（glibc 主机，嵌入官方 Android Bun）
 
 编译不能放在 Termux 里做：Android 版 Bun 打包时把 `process.platform` 定为 `android`，OpenTUI、FFF 和 `@parcel/watcher` 都不认这个平台。详见 [架构说明](docs/architecture.md)。
 
-补丁按 fuzz 0 应用，原生组件的版本与 `versions.json` 逐一核对；上游代码或依赖变化时，构建会直接失败而不是产出未经验证的文件。
+原生组件和 Bun 的版本不在本仓库写死，而是跟着 OpenCode 自己的 `bun.lock` 和 `package.json` 走：OpenCode 升级 OpenTUI 之类的依赖时，构建自动从对应版本的源码编译（GitHub 源码按 commit 下载，npm 包对照 lockfile 的 integrity，Bun 对照 Release 的 `SHASUMS256.txt`），不需要人工改版本号。补丁按 fuzz 0 应用；上游改动导致补丁打不上时，构建会直接失败，而不是产出未经验证的文件。
 
 ## CI
 

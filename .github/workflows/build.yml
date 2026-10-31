@@ -6,9 +6,11 @@ name: build
 #              vX.Y.Z-rN for a manual re-cut after toolchain changes) and
 #              decides whether anything new needs to be released.
 #   tests   -- Python and shell regression tests; pull requests stop here.
-#   bionic  -- ARM64 runner + pinned termux-docker. Builds the Bionic native
-#              assets in Termux, compiles OpenCode from source on the runner,
-#              then executes the binary in Termux; contents stay read-only.
+#   bionic  -- ARM64 runner + pinned termux-docker. Reads which native
+#              dependencies and Bun the OpenCode version uses from its bun.lock
+#              and package.json, builds the Bionic native assets in Termux,
+#              compiles OpenCode from source on the runner, then executes the
+#              binary in Termux; contents stay read-only.
 #   release -- the only job with write permission; publishes the package.
 #
 # Toolchain changes are not released on their own: they ship with the next
@@ -119,6 +121,18 @@ jobs:
         with:
           persist-credentials: false
 
+      # Nothing native is pinned here: the OpenCode version decides, through its
+      # bun.lock and package.json (tools/resolve_natives.py, work/natives.json).
+      - name: Resolve the native dependencies of OpenCode
+        id: resolved
+        env:
+          OPENCODE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          make resolve-natives VERSION="$OPENCODE_VERSION"
+          # The Termux-built assets depend on these entries only.
+          echo "termux=$(jq -cS '{base_bun, watcher, fff, rust_pty}' work/natives.json | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       # The Termux-built assets depend only on these inputs, and FFF alone
       # takes a quarter of an hour: reuse them while the inputs are unchanged.
       - name: Restore the Bionic native assets
@@ -128,7 +142,7 @@ jobs:
           path: |
             work/native
             work/android-ndk
-          key: bionic-natives-${{ hashFiles('versions.json', 'native/**', 'patches/bun-pty-android.patch', 'scripts/build-watcher.sh', 'scripts/build-fff*.sh', 'scripts/build-rust-pty*.sh', 'scripts/android-clang*', 'scripts/export-android-sysroot.sh', 'scripts/fetch-bun.sh', 'tools/elf_native.py', 'tools/rewrite_needed.py', 'tools/*_smoke.ts', 'tools/watcher_smoke.js', '.github/ci/natives.sh') }}
+          key: bionic-natives-${{ steps.resolved.outputs.termux }}-${{ hashFiles('versions.json', 'native/**', 'patches/bun-pty-android.patch', 'scripts/build-watcher.sh', 'scripts/build-fff*.sh', 'scripts/build-rust-pty*.sh', 'scripts/android-clang*', 'scripts/export-android-sysroot.sh', 'scripts/fetch-bun.sh', 'tools/elf_native.py', 'tools/rewrite_needed.py', 'tools/*_smoke.ts', 'tools/watcher_smoke.js', '.github/ci/natives.sh') }}
 
       - name: Build the Bionic native assets inside Termux
         env:

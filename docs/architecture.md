@@ -17,8 +17,9 @@ OpenCode vX.Y.Z（tag 对应的提交）
 dist/opencode = 官方 bun-linux-aarch64-android + OpenCode bundle
 ```
 
-编译主机是 glibc AArch64 Linux，用与底座同版本的官方 Bun（`versions.json` 的
-`host_bun` 与 `base_bun`）。两者版本必须一致，因为 bundle 的格式由编译用的 Bun 决定。
+编译主机是 glibc AArch64 Linux，用与底座同版本的官方 Bun（`work/natives.json` 的
+`host_bun` 与 `base_bun`，版本取 OpenCode `package.json` 的 `packageManager`）。两者版本必须
+一致，因为 bundle 的格式由编译用的 Bun 决定。
 
 ## 为什么不在 Termux 里编译
 
@@ -56,8 +57,9 @@ OpenCode 启动的独立程序，按上游 musl 版的方式编成静态可执�
 | `bun-pty` | `rust-pty/target/release/librust_pty_arm64_musl.so`（同一个 Bionic 库） |
 | `@opencode/pty-linux-arm64-gnu` | `bin/opencode-pty` |
 
-装上的版本必须等于 `versions.json` 锁定、原生组件实际编译的版本，否则失败：上游升级依赖时
-要先更新组件。替换是删掉再写新文件，因为 Bun 把 `node_modules` 硬链接到全局缓存。
+装上的版本必须等于原生组件实际编译的版本（`work/natives.json`）。这些版本由
+`tools/resolve_natives.py` 从同一份 `bun.lock` 读出，所以正常情况下必然一致；不一致说明解析
+或安装出了问题，构建失败。替换是删掉再写新文件，因为 Bun 把 `node_modules` 硬链接到全局缓存。
 
 编译后仍从产物里提取模块图，用 `audit_native_assets.py --require-bionic` 审计：任何一个
 内嵌 ELF 带 glibc 依赖都不会进入发布（静态的 opencode-pty 没有解释器和 `DT_NEEDED`）。
@@ -66,7 +68,7 @@ OpenCode 启动的独立程序，按上游 musl 版的方式编成静态可执�
 
 正式产物必须同时满足：
 
-1. 补丁全部按 fuzz 0 应用，原生组件版本与 `versions.json` 一致；
+1. 补丁全部按 fuzz 0 应用，原生组件版本与 OpenCode 的 `bun.lock` 一致（`work/natives.json`）；
 2. 产物模块图里的内嵌 ELF 都是 AArch64，且没有 glibc 依赖；
 3. `--version` 与源码 tag 一致；
 4. `opencode serve` 的文件搜索接口在 git 仓库里（OpenCode 只在仓库里用 FFF）经由打过补丁的 FFF wrapper 找到文件，服务端搜索后和退出时都不崩溃（`tools/serve_smoke.py`）；

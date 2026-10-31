@@ -13,9 +13,9 @@ The generated executable is compiled from, or links, the following upstream work
   [Ghostty](https://github.com/ghostty-org/ghostty)'s VT library, MIT, linked in
 
 The build also contains transitive Rust, Zig, C and C++ dependencies under
-their respective upstream licenses. Source versions and immutable archive
-hashes used directly by this project are recorded in `versions.json` and the
-release `BUILD-MANIFEST.json`.
+their respective upstream licenses. The versions follow OpenCode's lockfile;
+the versions, commits and archive hashes each release was built from are
+recorded in its `BUILD-MANIFEST.json` (`natives`).
 
 Releases up to v1.18.35-r1 were not compiled from source: they grafted the
 official build's module graph onto the Android Bun with `tools/revive_patch.py`,

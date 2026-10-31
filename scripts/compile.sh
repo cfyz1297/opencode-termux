@@ -33,10 +33,12 @@ flock -n 9 || { echo "compile: another build is running" >&2; exit 1; }
   echo "compile: $HOST_BUN must be the glibc Bun on a Linux AArch64 host" >&2
   exit 1
 }
-# The host cannot run the Android Bun, so its version comes from versions.json;
-# compile.json records whether the file is the pinned one.
-BASE_VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["base_bun"]["version"])' "$ROOT/versions.json")"
-HOST_VERSION="$("$HOST_BUN" --revision)"
+# Both Buns come from the release OpenCode's package.json names (work/natives.json).
+# The host cannot run the Android one, so its version is the resolved one.
+NATIVES="${NATIVES_JSON:-$ROOT/work/natives.json}"
+[ -f "$NATIVES" ] || { echo "compile: $NATIVES is missing; run make resolve-natives" >&2; exit 1; }
+BASE_VERSION="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["base_bun"]["version"])' "$NATIVES")"
+HOST_VERSION="$("$HOST_BUN" --version)"
 [ "$HOST_VERSION" = "$BASE_VERSION" ] || {
   echo "compile: host Bun $HOST_VERSION cannot compile for Android Bun $BASE_VERSION" >&2
   exit 1
@@ -65,7 +67,7 @@ echo "::group::bun install"
 echo "::endgroup::"
 
 echo "::group::Swap in the Bionic native assets"
-python3 "$ROOT/tools/swap_native_assets.py" "$SRC" \
+python3 "$ROOT/tools/swap_native_assets.py" "$SRC" --versions "$NATIVES" \
   --opentui "$NATIVE/opentui/libopentui.so" \
   --watcher "$NATIVE/watcher/watcher.node" \
   --fff "$NATIVE/fff/libfff_c.so" \
@@ -91,19 +93,20 @@ python3 "$ROOT/tools/audit_native_assets.py" "$WORK/opencode.graph" \
     exit 1
   }
 
-python3 - "$DIST/compile.json" "$ROOT" "$SOURCE_JSON" "$CANDIDATE" "$BUN" "$HOST_BUN" "$WORK" <<'PY'
+python3 - "$DIST/compile.json" "$ROOT" "$SOURCE_JSON" "$CANDIDATE" "$BUN" "$HOST_BUN" "$WORK" "$NATIVES" <<'PY'
 import hashlib, json, pathlib, sys
-out, root, source, candidate, bun, host_bun, work = sys.argv[1:]
+out, root, source, candidate, bun, host_bun, work, natives = sys.argv[1:]
 root, work = pathlib.Path(root), pathlib.Path(work)
 sha = lambda p: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
 load = lambda p: json.loads(pathlib.Path(p).read_text())
-versions = load(root / "versions.json")
+resolved = load(natives)
 def bun_info(key, path):
-    pinned = versions[key]
-    digest = sha(path)
-    # An override that is not the pinned Bun is recorded as such.
-    return {"version": pinned["version"] if digest == pinned["binary_sha256"] else "unpinned",
-            "binary_sha256": digest}
+    # fetch-bun.sh records which archive the binary came from; an override is recorded as such.
+    stamp = pathlib.Path(path).with_name("bun.archive.sha256")
+    archive = stamp.read_text().strip() if stamp.exists() else ""
+    ours = archive == resolved[key]["archive_sha256"]
+    return {"version": resolved[key]["version"] if ours else "unresolved",
+            "archive_sha256": archive, "binary_sha256": sha(path)}
 src = load(source)
 doc = {
     "opencode": src["version"],
@@ -113,6 +116,7 @@ doc = {
     "base_bun": bun_info("base_bun", bun),
     "host_bun": bun_info("host_bun", host_bun),
     "patches": {p.name: sha(p) for p in sorted((root / "patches").glob("*.patch"))},
+    "natives": {k: v for k, v in resolved.items() if k != "opencode"},
     "swapped": load(work / "swap.json"),
     "extract": load(work / "extract.json"),
     "native_assets": load(work / "native-assets.json"),

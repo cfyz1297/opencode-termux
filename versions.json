@@ -1,15 +1,7 @@
 {
-  "base_bun": {
-    "version": "1.4.4+38afee6c8",
-    "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-aarch64-android.zip",
-    "archive_sha256": "d72e42c60e895ccbc16144bb1e0e0ad7ee384841c35b5501a7ec28b4d6d759c9",
-    "binary_sha256": "461fda703381e03e8856791cd57093cd79b8f05f2ee262bc69f16c27d2c5575e"
-  },
-  "host_bun": {
-    "version": "1.4.4+38afee6c8",
-    "url": "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-linux-aarch64.zip",
-    "archive_sha256": "baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e",
-    "binary_sha256": "354c2b049c716aca07b2e5cddb887928ac58950675d1258bb6312083917793b6"
+  "bun": {
+    "android_asset": "bun-linux-aarch64-android.zip",
+    "host_asset": "bun-linux-aarch64.zip"
   },
   "android_ndk": {
     "version": "27.2.12479018",
@@ -18,31 +10,6 @@
   "rust": {
     "version": "1.90.0"
   },
-  "watcher": {
-    "version": "2.5.1",
-    "source_url": "https://registry.npmjs.org/@parcel/watcher/-/watcher-2.5.1.tgz",
-    "source_sha256": "bf7a6b5577a287153c9a6bf7be953556b998f2a57706eb7a5371ec7eb0088d41",
-    "node_addon_api_version": "7.1.1",
-    "node_addon_api_url": "https://registry.npmjs.org/node-addon-api/-/node-addon-api-7.1.1.tgz",
-    "node_addon_api_sha256": "b10455d15a977c0cd17a1cb0eb679e03d939f8ef8d4302eb33e1f78dacc71f82"
-  },
-  "opentui": {
-    "version": "0.8.0",
-    "source_url": "https://codeload.github.com/anomalyco/opentui/tar.gz/refs/tags/v0.8.0",
-    "source_sha256": "20f55c5dea47b6db8d88166a767c9f3a588511662d909b567576b6d45aa37ef2"
-  },
-  "fff": {
-    "version": "0.10.5",
-    "source_url": "https://codeload.github.com/dmtrKovalenko/fff/tar.gz/refs/tags/v0.10.5",
-    "source_sha256": "db50fa8aaabb77211f8dbeb4d77dc8852e0ee52070e40bfd9ef5af44ac50accc"
-  },
-  "rust_pty": {
-    "package": "bun-pty",
-    "version": "0.4.11",
-    "source_url": "https://codeload.github.com/sursaone/bun-pty/tar.gz/refs/tags/v0.4.11",
-    "source_sha256": "07ff88c9ee96019dd1691e9ede485e35221c036e599545075587cb85537157b2",
-    "portable_pty_version": "0.9.0"
-  },
   "zig": {
     "version": "0.16.0",
     "aarch64_linux_url": "https://ziglang.org/download/0.16.0/zig-aarch64-linux-0.16.0.tar.xz",
@@ -50,10 +17,25 @@
     "x86_64_linux_url": "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz",
     "x86_64_linux_sha256": "70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00"
   },
+  "watcher": {
+    "npm": "@parcel/watcher",
+    "node_addon_api": "node-addon-api"
+  },
+  "opentui": {
+    "github": "anomalyco/opentui",
+    "tag": "v{version}"
+  },
+  "fff": {
+    "github": "dmtrKovalenko/fff",
+    "tag": "v{version}"
+  },
+  "rust_pty": {
+    "github": "sursaone/bun-pty",
+    "tag": "v{version}"
+  },
   "opencode_pty": {
-    "version": "0.4.0",
-    "source_url": "https://codeload.github.com/anomalyco/opencode/tar.gz/refs/tags/process-daemon-v0.4.0",
-    "source_sha256": "e052c76f871414923ecddb8845af9bd57e4271cc73f4d350bbb8ec5a33e6d360",
+    "github": "anomalyco/opencode",
+    "tag": "process-daemon-v{version}",
     "source_dir": "packages/process-daemon",
     "target": "aarch64-unknown-linux-musl"
   }

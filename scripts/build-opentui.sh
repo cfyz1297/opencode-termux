@@ -25,11 +25,14 @@ done
   exit 1
 }
 
+# work/natives.json: what tools/resolve_natives.py found for the OpenCode source (make resolve-natives).
+NATIVES="${NATIVES_JSON:-$ROOT/work/natives.json}"
+[ -f "$NATIVES" ] || { echo "build-opentui: $NATIVES is missing; run make resolve-natives" >&2; exit 1; }
 read -r VERSION SOURCE_URL SOURCE_SHA ZIG_VERSION ZIG_URL ZIG_SHA API < <(
-  python3 - "$ROOT/versions.json" <<'PY'
+  python3 - "$ROOT/versions.json" "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))
-p, z = x["opentui"], x["zig"]
+p, z = json.load(open(sys.argv[2]))["opentui"], x["zig"]
 print(p["version"], p["source_url"], p["source_sha256"],
       z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"], x["android_ndk"]["api"])
 PY

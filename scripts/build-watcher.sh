@@ -17,8 +17,11 @@ for library in libc++_static.a libc++abi.a libunwind.a; do
   }
 done
 
+# work/natives.json: what tools/resolve_natives.py found for the OpenCode source (make resolve-natives).
+NATIVES="${NATIVES_JSON:-$ROOT/work/natives.json}"
+[ -f "$NATIVES" ] || { echo "build-watcher: $NATIVES is missing; run make resolve-natives" >&2; exit 1; }
 read -r VERSION SOURCE_URL SOURCE_SHA NAPI_VERSION NAPI_URL NAPI_SHA < <(
-  python3 - "$ROOT/versions.json" <<'PY'
+  python3 - "$NATIVES" <<'PY'
 import json, sys
 w = json.load(open(sys.argv[1]))["watcher"]
 print(w["version"], w["source_url"], w["source_sha256"],

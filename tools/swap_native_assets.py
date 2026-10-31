@@ -6,9 +6,10 @@ resolves, the glibc linux-arm64 ones on the build host. This replaces those
 files in node_modules with the Bionic builds before compiling, and applies the
 patches of dependencies that need one on Android.
 
-Every package must be installed at the version versions.json pins: the Bionic
-assets are built from those sources, so an upstream dependency bump fails here
-instead of shipping a mismatched library. Files are replaced, never written in
+Every package must be installed at the version work/natives.json names: the
+Bionic assets are built from those sources (tools/resolve_natives.py reads them
+from the same bun.lock), so a mismatch fails here instead of shipping a
+mismatched library. Files are replaced, never written in
 place, because Bun hardlinks node_modules to its global cache.
 """
 
@@ -23,7 +24,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
-# (versions.json key, npm package, file inside the package)
+# (natives.json key, npm package, file inside the package); tools/resolve_natives.py
+# reads each key's version from bun.lock under these package names.
 ASSETS = [
     ("opentui", "@opentui/core-linux-arm64", "libopentui.so"),
     ("watcher", "@parcel/watcher-linux-arm64-glibc", "watcher.node"),
@@ -35,7 +37,7 @@ ASSETS = [
     # A static executable OpenCode starts, see scripts/build-opencode-pty.sh.
     ("opencode_pty", "@opencode/pty-linux-arm64-gnu", "bin/opencode-pty"),
 ]
-# (versions.json key, npm package, patch file under patches/)
+# (natives.json key, npm package, patch file under patches/)
 PATCHES = [
     ("fff", "@ff-labs/fff-bun", "fff-bun-android.patch"),
 ]
@@ -103,7 +105,7 @@ def pinned(root: Path, name: str, version: str) -> list[Path]:
     if not matching:
         installed = sorted({package_version(package) for package in copies}) or ["none"]
         raise SwapError(
-            f"{name}: versions.json pins {version}, installed: {', '.join(installed)}"
+            f"{name}: natives.json names {version}, installed: {', '.join(installed)}"
         )
     return matching
 
@@ -171,7 +173,7 @@ def main() -> int:
     tools = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path, help="installed OpenCode source tree")
-    parser.add_argument("--versions", type=Path, default=tools.parent / "versions.json")
+    parser.add_argument("--versions", type=Path, default=tools.parent / "work" / "natives.json")
     parser.add_argument("--patches", type=Path, default=tools.parent / "patches")
     keys = list(dict.fromkeys(key for key, _, _ in ASSETS))
     for key in keys:

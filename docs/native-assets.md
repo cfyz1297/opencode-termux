@@ -2,23 +2,37 @@
 
 编译前替换进 `node_modules` 的 Bionic 资产（`tools/swap_native_assets.py`）：
 
-| npm 包里的文件 | 上游 | `DT_NEEDED` |
+| npm 包里的文件 | 上游源码 | `DT_NEEDED` |
 |---|---:|---|
-| `@opentui/core-linux-arm64/libopentui.so` | OpenTUI 0.8.0 | `libm.so`, `libc.so`, `libdl.so` |
-| `@ff-labs/fff-bin-linux-arm64-gnu/libfff_c.so` | FFF 0.10.5 | `libz.so`, `libdl.so`, `libm.so`, `libc.so` |
-| `@parcel/watcher-linux-arm64-glibc/watcher.node` | `@parcel/watcher` 2.5.1 | `liblog.so`, `libdl.so`, `libm.so`, `libc.so` |
-| `bun-pty/rust-pty/target/release/librust_pty_arm64.so` | `bun-pty` 0.4.11 | `libdl.so`, `libc.so` |
+| `@opentui/core-linux-arm64/libopentui.so` | OpenTUI | `libm.so`, `libc.so`, `libdl.so` |
+| `@ff-labs/fff-bin-linux-arm64-gnu/libfff_c.so` | FFF | `libz.so`, `libdl.so`, `libm.so`, `libc.so` |
+| `@parcel/watcher-linux-arm64-glibc/watcher.node` | `@parcel/watcher` | `liblog.so`, `libdl.so`, `libm.so`, `libc.so` |
+| `bun-pty/rust-pty/target/release/librust_pty_arm64.so` | `bun-pty` | `libdl.so`, `libc.so` |
 | `bun-pty/rust-pty/target/release/librust_pty_arm64_musl.so` | 同上，同一个文件 | `libdl.so`, `libc.so` |
 
 bun-pty 0.4.10 起在 Linux 上同时内嵌 musl 版，只在 ld-musl 下加载。它只依赖 `libc.so`，
 与 Android 的同名，`--require-bionic` 审计分不出来，所以同样换成 Bionic 库。
 
-npm 包的版本必须与表中一致（即 `versions.json`），否则构建失败。产物里的模块名带
-Bun 生成的哈希后缀，如 `libopentui-x8k2b6xk.so`。
+## 版本从哪来
 
-原生输出可能包含构建目录或 build-id，因此每次构建的实际 SHA-256 由
-`dist/build-manifest.json` 记录，不把它误当作源码身份。源码归档哈希固定在
-`versions.json`。
+每个组件编译哪个版本，由要编译的 OpenCode 决定：`tools/resolve_natives.py` 读它的
+`bun.lock`，取上表这些 npm 包装上的版本（同一组件的几个包必须是同一个版本，也只能装一份），
+再按 `versions.json` 里的配方找源码，写进 `work/natives.json`，所有编译脚本都读这个文件：
+
+- GitHub 源码（OpenTUI、FFF、bun-pty、opencode-pty）：按配方的 tag 格式（如 `v{version}`、
+  `process-daemon-v{version}`）用 `git ls-remote` 解析出 commit，按 commit 下载归档，记下
+  commit 和 SHA-256。
+- npm 源码（`@parcel/watcher` 和它装上的 `node-addon-api`）：registry 的 tarball，对照
+  `bun.lock` 里的 sha512 integrity。
+- Bun 底座和编译用的 Bun：版本取 OpenCode `package.json` 的 `packageManager`，归档对照该
+  Release 的 `SHASUMS256.txt`。
+- 另外检查 OpenTUI 的 `build.zig.zon`：它要求的 `minimum_zig_version` 比 `versions.json`
+  固定的 Zig 新时，构建在解析这一步就失败。
+
+某次构建实际用的版本、commit 和哈希都记在 Release 的 `BUILD-MANIFEST.json`
+（`natives`）里。产物里的模块名带 Bun 生成的哈希后缀，如 `libopentui-x8k2b6xk.so`。
+原生输出可能包含构建目录或 build-id，所以每次构建的实际 SHA-256 也由
+`dist/build-manifest.json` 记录，不把它误当作源码身份。
 
 ## FFF pointer boundary
 

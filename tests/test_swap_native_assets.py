@@ -122,9 +122,9 @@ class SwapTests(unittest.TestCase):
         self.assertEqual((self.cache / "libopentui.so").read_text(), "glibc opentui")
         self.assertEqual((self.cache / "ffi.ts").read_text(), FFI_BEFORE)
 
-    def test_upstream_dependency_bump_fails(self):
+    def test_version_mismatch_fails(self):
         bumped = dict(VERSIONS, watcher={"version": "2.6.0"})
-        with self.assertRaisesRegex(swap.SwapError, r"pins 2\.6\.0, installed: 2\.5\.1"):
+        with self.assertRaisesRegex(swap.SwapError, r"names 2\.6\.0, installed: 2\.5\.1"):
             self.run_swap(bumped)
 
     def test_missing_package_fails(self):
@@ -137,14 +137,6 @@ class SwapTests(unittest.TestCase):
         with self.assertRaisesRegex(swap.SwapError, "does not apply"):
             self.run_swap()
 
-
-class VersionsTests(unittest.TestCase):
-    def test_host_bun_matches_the_android_base(self):
-        versions = json.loads((ROOT / "versions.json").read_text())
-        self.assertEqual(versions["host_bun"]["version"], versions["base_bun"]["version"])
-        self.assertIn("linux-aarch64.zip", versions["host_bun"]["url"])
-        for key, _, _ in swap.ASSETS:
-            self.assertIn("version", versions[key])
 
 
 if __name__ == "__main__":

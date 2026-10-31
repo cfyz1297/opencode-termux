@@ -1,14 +1,19 @@
 SHELL := bash
 VERSION ?= latest
 
+# glibc host: fetch-source, resolve-natives (first: everything below reads work/natives.json)
 # Termux:     fetch-bun, build-native (exports the Android sysroot), verify
-# glibc host: fetch-source, fetch-host-bun, build-opentui, build-opencode-pty, compile
+# glibc host: fetch-host-bun, build-opentui, build-opencode-pty, compile
 # (scripts/compile.sh explains why compiling cannot happen inside Termux.)
 
-.PHONY: fetch-source fetch-bun fetch-host-bun build-watcher build-opentui build-fff build-rust-pty export-android-sysroot build-native build-opencode-pty compile verify smoke audit test clean
+.PHONY: fetch-source resolve-natives fetch-bun fetch-host-bun build-watcher build-opentui build-fff build-rust-pty export-android-sysroot build-native build-opencode-pty compile verify smoke audit test clean
 
 fetch-source:
 	bash scripts/fetch-source.sh $(VERSION)
+
+# The native dependencies and Bun of that source: tools/resolve_natives.py.
+resolve-natives: fetch-source
+	python3 tools/resolve_natives.py work/upstream/opencode-src
 
 fetch-bun:
 	bash scripts/fetch-bun.sh

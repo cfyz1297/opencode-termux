@@ -8,15 +8,19 @@ make test                        # 回归测试，几秒，不联网
 
 ## 上游发新版本
 
-每天 03:17 UTC 的 CI 会发现新版本，构建、在 termux-docker 里验收通过后自动发布，不需要人工操作。构建失败时按失败的步骤处理：
+每天 03:17 UTC 的 CI 会发现新版本，构建、在 termux-docker 里验收通过后自动发布，不需要人工操作。OpenCode 升级 OpenTUI、FFF、watcher、bun-pty、opencode-pty 或 Bun 也一样：版本从它的 `bun.lock` 和 `package.json` 读出，构建自动从对应版本的源码编译（见 [native-assets.md](native-assets.md#版本从哪来)）。只有补丁打不上、包改了名这类真正的上游变化才需要人工处理。构建失败时按失败的步骤处理：
 
 | 失败在 | 通常意味着 | 怎么办 |
 | --- | --- | --- |
 | `opencode-000N-*.patch does not apply` | 上游改了补丁涉及的代码 | 在新 tag 的源码上重做这个补丁（见下文），补丁一律 fuzz 0 |
-| `swap_native_assets: ... pins X, installed: Y` | 上游升级了某个原生依赖 | 在 `versions.json` 把组件升到 Y，确认 `patches/` 里对应的补丁还适用，CI 会从源码重新编译组件 |
+| `resolve_natives: X is not in bun.lock` | 上游改了原生包的名字或不再用它 | 在 `tools/swap_native_assets.py` 改包名，源码仓库或 tag 格式变了再改 `versions.json` 的配方 |
+| `resolve_natives: tag ... not found in ...` | 组件的 tag 命名变了 | 改 `versions.json` 里这个组件的 `tag` 格式 |
+| `resolve_natives: expected one version` | 同一组件装了两个版本，或几个包的版本对不上 | 看 `bun.lock`，通常是上游升级到一半；等上游修好，或在 `swap_native_assets.py` 里处理 |
+| `OpenTUI X needs Zig Y` | OpenTUI 要求更新的 Zig | 在 `versions.json` 升级 `zig`（URL 和 SHA-256 见 ziglang.org 的 `download/index.json`），确认 OpenTUI 和 opencode-pty 都还能编 |
+| `opentui-android.patch` / `opencode-pty-termux.patch` / `bun-pty-android.patch` 打不上 | 组件的新版本改了补丁涉及的代码 | 在新版本源码上重做补丁（`work/natives.json` 里有 commit），补丁一律 fuzz 0 |
 | `fff-bun-android.patch does not apply` | FFF 的 Bun wrapper 变了 | 重做补丁，`src/ffi.ts` 和 `dist/index.js` 都要改；手机上可以用 Release 里的 `libfff_c.so` 直接测 wrapper |
 | `a native asset in the binary is not Bionic` | 产物里出现了新的原生模块 | 看 `work/build/native-assets.json`，见 [native-assets.md](native-assets.md) |
-| `host Bun ... cannot compile for Android Bun ...` | `versions.json` 的 `host_bun` 和 `base_bun` 版本不同 | 两者总是一起改 |
+| `host Bun ... cannot compile for Android Bun ...` | 编译用的 Bun 和底座不是同一个版本 | 两者都从 `work/natives.json` 取，通常是本地 `work/bun-host` 里留着旧的；删掉重下 |
 | verify 里的 `update` / 文件搜索 / TUI 冒烟 | 运行时问题 | 看 `work/build/*-smoke.log`（CI 的日志里有输出） |
 
 手动重跑：`gh workflow run build.yml -f version=<版本>`。要在分支上验证而不发布，用一个已经发布过的版本、`recut=false`（见 [ci.md](ci.md)）。
@@ -33,14 +37,11 @@ git add -A && git diff --cached > ../../../patches/opencode-0002-update-from-ter
 
 改完的 TypeScript 可以用 `work/bun-android/bun build --no-bundle <文件>` 检查语法；`src/installation/termux.ts` 这种不依赖上游模块的文件可以直接用 Android Bun 运行。
 
-## 更换 Bun 底座
+## Bun 底座
 
-底座是 Bun 官方 Release 里的 `bun-linux-aarch64-android.zip`，`versions.json` 按 URL 和 SHA-256 锁定（`archive_sha256` 对照 Release 的 `SHASUMS256.txt`）。改完 `versions.json` 后：
+底座是 Bun 官方 Release 里的 `bun-linux-aarch64-android.zip`，编译用的是同一个 Release 的 `bun-linux-aarch64.zip`。版本跟着 OpenCode `package.json` 的 `packageManager` 走，归档对照该 Release 的 `SHASUMS256.txt`，不用手动改。
 
-1. 同时更新 `host_bun`：同一个 Bun Release 的 `bun-linux-aarch64.zip`，编译用的 Bun 必须和底座同版本；
-2. `make fetch-bun`，确认下载和两个哈希都对得上（`host_bun` 只能在 glibc 主机上 `make fetch-host-bun`）；
-3. 推送，让 CI 重新编译并在 termux-docker 里验收；
-4. 通过后用 `recut` 重新发布当前版本（见下文）。
+某个 Bun 版本在 Android 上有问题、需要临时换一个版本时，在 `versions.json` 的 `bun` 里加 `"version": "X.Y.Z"`，它优先于 `packageManager`（新版本要满足 OpenCode 构建脚本要求的范围）。问题解决后删掉这一行。
 
 原生组件编译时不依赖 Bun，Bun 只用来跑它们的冒烟测试，所以换底座不需要改组件。
 
