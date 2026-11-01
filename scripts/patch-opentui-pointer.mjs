@@ -48,9 +48,43 @@ if (!root) {
   process.exit(2);
 }
 
-const packageDir = path.join(root, "node_modules", "@opentui", "core");
-if (!fs.existsSync(packageDir)) {
-  console.error(`patch-opentui-pointer: ${packageDir} is missing; run bun install first`);
+// Bun hoists, nests, or keeps hardlinks in its `.bun` store, so walk the tree
+// instead of assuming one location (tools/swap_native_assets.py does the same).
+function opentuiPackages(dir, found = [], seen = new Set()) {
+  let entries;
+  try {
+    if (!fs.statSync(dir).isDirectory()) return found;
+    const key = fs.realpathSync(dir);
+    if (seen.has(key)) return found;
+    seen.add(key);
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return found;
+  }
+  for (const entry of entries) {
+    if (entry.name === ".git") continue;
+    const full = path.join(dir, entry.name);
+    let isDirectory;
+    try {
+      // Bun links packages, so symlinked directories must be followed.
+      isDirectory = fs.statSync(full).isDirectory();
+    } catch {
+      continue;
+    }
+    if (!isDirectory) continue;
+    if (entry.name === "@opentui") {
+      const core = path.join(full, "core");
+      if (fs.existsSync(path.join(core, "package.json"))) found.push(core);
+      continue;
+    }
+    opentuiPackages(full, found, seen);
+  }
+  return found;
+}
+
+const packages = [...new Set(opentuiPackages(root).map((dir) => fs.realpathSync(dir)))];
+if (packages.length === 0) {
+  console.error(`patch-opentui-pointer: no @opentui/core under ${root}; run bun install first`);
   process.exit(1);
 }
 
@@ -67,15 +101,15 @@ function javascriptFiles(dir) {
   return out;
 }
 
-const files = javascriptFiles(packageDir);
-const withFunction = files.filter((file) => {
+const files = packages.flatMap((dir) => javascriptFiles(dir));
+const withFunction = [...new Set(files)].filter((file) => {
   const text = fs.readFileSync(file, "utf8");
   return text.includes("POINTER_UNSAFE") && FUNCTION_RE.test(text);
 });
 
 if (withFunction.length === 0) {
   console.error(
-    `patch-opentui-pointer: no toSafeNumberPointer in ${packageDir} (${files.length} JS files); OpenTUI changed`
+    `patch-opentui-pointer: no toSafeNumberPointer in ${packages.length} @opentui/core (${files.length} JS files); OpenTUI changed`
   );
   process.exit(1);
 }

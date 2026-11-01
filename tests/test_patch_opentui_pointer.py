@@ -36,6 +36,7 @@ def write_package(root: pathlib.Path, text: str = ORIGINAL) -> pathlib.Path:
     package.mkdir(parents=True)
     chunk = package / "chunk-bun-fixture.js"
     chunk.write_text(text)
+    (package / "package.json").write_text('{"name": "@opentui/core"}\n')
     (package / "index.bun.js").write_text("export const x = 1;\n")
     return chunk
 
@@ -87,7 +88,19 @@ class PatchOpenTuiPointerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             result = self.run_patcher(pathlib.Path(tmp))
             self.assertEqual(result.returncode, 1)
-            self.assertIn("is missing", result.stderr)
+            self.assertIn("no @opentui/core", result.stderr)
+
+    def test_finds_a_nested_install(self):
+        """Bun nests the package under a workspace or keeps it in its .bun store."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            nested = root / "packages" / "tui" / "node_modules" / "@opentui" / "core"
+            nested.mkdir(parents=True)
+            (nested / "chunk-bun-nested.js").write_text(ORIGINAL)
+            (nested / "package.json").write_text('{"name": "@opentui/core"}\n')
+            result = self.run_patcher(root, "--self-test")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("packages/tui/node_modules/@opentui/core", result.stdout)
 
 
 if __name__ == "__main__":
