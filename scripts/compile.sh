@@ -66,6 +66,11 @@ echo "::group::bun install"
 (cd "$SRC" && ELECTRON_SKIP_BINARY_DOWNLOAD=1 bun install)
 echo "::endgroup::"
 
+echo "::group::Patch OpenTUI pointer tagging"
+# Bionic tags heap pointers (TBI); OpenTUI refuses them as unsafe JS integers.
+"$HOST_BUN" "$ROOT/scripts/patch-opentui-pointer.mjs" "$SRC" --self-test
+echo "::endgroup::"
+
 echo "::group::Swap in the Bionic native assets"
 python3 "$ROOT/tools/swap_native_assets.py" "$SRC" --versions "$NATIVES" \
   --opentui "$NATIVE/opentui/libopentui.so" \

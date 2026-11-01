@@ -48,6 +48,28 @@ Bun 解析这个包时走 `exports` 的 `bun` 条件，打包的是 `src/ffi.ts`
 `tools/serve_smoke.py` 在 git 仓库里经 `opencode serve` 再测一次打包后的 wrapper，非
 仓库目录 OpenCode 用 ripgrep，测不到 FFF。
 
+## OpenTUI pointer boundary
+
+Android 17 тегирует указатели кучи в старшем байте (TBI): `malloc(64)` отдаёт
+`0xb400007a3a41e380`, а адрес в этом указателе — `0x7a3a41e380`. Значение
+`0xb4…` больше `Number.MAX_SAFE_INTEGER`, а OpenTUI конвертирует указатель
+контекста из `ot_context_create` в JS-number и падает с
+`Pointer exceeds safe integer range` — то есть TUI не стартует на первом же
+нативном вызове. CI этого не ловит: в `termux-docker` нет tagged-address ABI,
+поэтому теги там не появляются.
+
+`scripts/patch-opentui-pointer.mjs` перед сборкой находит
+`toSafeNumberPointer` в `node_modules/@opentui/core` и срезает старший байт:
+если значение больше `2^53−1`, берётся `pointer & 0x00ffffffffffffffn`, и только
+потом `Number(...)`. Тег не входит в адрес, а `bun:ffi` принимает только
+числовые указатели, поэтому сохранить `bigint` вместо маски нельзя.
+
+Скрипт идемпотентен, проверяет себя флагом `--self-test` (тегированный указатель
+превращается в адрес, обычный остаётся как есть, мусор отклоняется) и падает,
+если в новой версии OpenTUI такой функции нет: молчаливая сборка бинаря без TUI
+хуже явной ошибки. Проверка живёт в `scripts/compile.sh` между `bun install` и
+`bun build --compile`.
+
 ## Watcher
 
 `@parcel/watcher-android-arm64@2.5.1` 的预编译文件依赖 `libc++_shared.so`，在 Android
