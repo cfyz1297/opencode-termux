@@ -45,6 +45,10 @@ When the same OpenCode version is published again because the toolchain changed 
 
 This project followed upstream to OpenCode 2 and no longer publishes OpenCode 1. If 1.x is installed, run `opencode upgrade` (for 1.18.32 and older, re-run the install command). On first start OpenCode 2 migrates 1.x sessions and login credentials; the configuration format changed, see the [OpenCode 2 documentation](https://opencode.ai/v2/docs).
 
+### Mobile client
+
+[cfyz1297/opencode-mobile](https://github.com/cfyz1297/opencode-mobile) is the Android client for the server this project installs: an Expo/React Native app on OpenCode API V2 with live SSE streaming, sessions, models, offline history, a tablet layout and Cloudflare/ngrok tunnel wizard. Point it at `opencode serve --hostname 0.0.0.0 --port 4096` running here; the app's README covers the connection (`opencode:<password>` Basic auth).
+
 ### How it works
 
 The build starts from the sources of the OpenCode release tag and follows upstream's Linux build: its `script/build.ts` runs on a glibc AArch64 host, except that the executable embeds the official Android build of Bun instead of the glibc one.
@@ -142,6 +146,10 @@ opencode upgrade   # можно и `opencode update`
 ### Переход с OpenCode 1
 
 Проект перешёл на OpenCode 2 вслед за апстримом и OpenCode 1 больше не публикует. Если установлен 1.x, достаточно выполнить `opencode upgrade` (для 1.18.32 и старше — заново запустить команду установки). При первом запуске OpenCode 2 переносит сессии и учётные данные 1.x; формат конфигурации изменился, см. [документацию OpenCode 2](https://opencode.ai/v2/docs).
+
+### Мобильный клиент
+
+[cfyz1297/opencode-mobile](https://github.com/cfyz1297/opencode-mobile) — Android-клиент к тому серверу, который ставит этот проект: приложение на Expo/React Native под OpenCode API V2, с живым потоком по SSE, сессиями, моделями, офлайн-историей, планшетной раскладкой и мастером туннелей Cloudflare/ngrok. Подключается к `opencode serve --hostname 0.0.0.0 --port 4096`, запущенному здесь; как именно — описано в README приложения (Basic-аутентификация `opencode:<пароль>`).
 
 ### Как это устроено
 
