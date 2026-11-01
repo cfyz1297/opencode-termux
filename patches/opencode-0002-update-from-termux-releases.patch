@@ -79,7 +79,7 @@ index 0000000..dddeba5
 +++ b/packages/cli/src/termux.ts
 @@ -0,0 +1,48 @@
 +// opencode-termux: this build updates from the Bionic-verified releases of
-+// wmdhs12138/opencode-termux, never from the official packages, which do not
++// cfyz1297/opencode-termux, never from the official packages, which do not
 +// run on Android.
 +//
 +// A release is vX.Y.Z or a re-cut vX.Y.Z-rN of the same OpenCode version (new
@@ -89,8 +89,8 @@ index 0000000..dddeba5
 +// comparing versions, so a re-cut is offered but never installed unasked.
 +
 +export const RELEASE_MANIFEST =
-+  "https://github.com/wmdhs12138/opencode-termux/releases/latest/download/build-manifest.json"
-+export const INSTALLER = "https://raw.githubusercontent.com/wmdhs12138/opencode-termux/main/install.sh"
++  "https://github.com/cfyz1297/opencode-termux/releases/latest/download/build-manifest.json"
++export const INSTALLER = "https://raw.githubusercontent.com/cfyz1297/opencode-termux/main/install.sh"
 +
 +/** The Termux prefix the installer writes to; `opencode` installed there updates with it. */
 +export function installedByInstaller(executable = process.execPath) {

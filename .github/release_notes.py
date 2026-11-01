@@ -8,7 +8,7 @@ import argparse
 import json
 import re
 
-INSTALL = "curl -fsSL https://raw.githubusercontent.com/wmdhs12138/opencode-termux/main/install.sh | bash"
+INSTALL = "curl -fsSL https://raw.githubusercontent.com/cfyz1297/opencode-termux/main/install.sh | bash"
 
 
 def load(path):

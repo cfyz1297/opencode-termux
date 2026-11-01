@@ -1,0 +1,57 @@
+name: sync-upstream
+
+# Keeps this fork on top of wmdhs12138/opencode-termux, then points install.sh,
+# the release notes and the `opencode upgrade` patch back at this fork: the
+# upstream text is about its own releases. A conflict anywhere but README.md
+# fails the run instead of guessing.
+on:
+  schedule:
+    - cron: "43 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch --no-tags https://github.com/wmdhs12138/opencode-termux.git main
+          if git merge-base --is-ancestor FETCH_HEAD HEAD; then
+            echo "already up to date"
+            exit 0
+          fi
+          if git merge --no-edit FETCH_HEAD; then
+            exit 0
+          fi
+          conflicted="$(git diff --name-only --diff-filter=U)"
+          if [ "$conflicted" = "README.md" ]; then
+            git checkout --ours README.md
+            git add README.md
+            git commit -m "sync: keep the Russian README"
+            exit 0
+          fi
+          echo "::error::upstream conflicts in: $conflicted"
+          exit 1
+
+      - name: Point installs back at this fork
+        run: |
+          set -euo pipefail
+          sed -i "s|wmdhs12138/opencode-termux|$GITHUB_REPOSITORY|g" \
+            install.sh .github/release_notes.py \
+            patches/opencode-0002-update-from-termux-releases.patch
+          git diff --quiet || git commit -am "sync: install and upgrade from $GITHUB_REPOSITORY"
+          git push origin HEAD:main

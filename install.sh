@@ -15,7 +15,7 @@
 # reinstalls anyway.
 set -euo pipefail
 
-REPOSITORY="${OPENCODE_TERMUX_REPO:-wmdhs12138/opencode-termux}"
+REPOSITORY="${OPENCODE_TERMUX_REPO:-cfyz1297/opencode-termux}"
 REQUESTED_VERSION="${VERSION:-latest}"
 PREFIX_PATH="${PREFIX:-/data/data/com.termux/files/usr}"
 FORCE="${OPENCODE_TERMUX_FORCE:-0}"
