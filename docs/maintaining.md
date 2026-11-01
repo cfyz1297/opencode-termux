@@ -17,6 +17,7 @@ make test                        # 回归测试，几秒，不联网
 | `resolve_natives: tag ... not found in ...` | 组件的 tag 命名变了 | 改 `versions.json` 里这个组件的 `tag` 格式 |
 | `resolve_natives: expected one version` | 同一组件装了两个版本，或几个包的版本对不上 | 看 `bun.lock`，通常是上游升级到一半；等上游修好，或在 `swap_native_assets.py` 里处理 |
 | `OpenTUI X needs Zig Y` | OpenTUI 要求更新的 Zig | 在 `versions.json` 升级 `zig`（URL 和 SHA-256 见 ziglang.org 的 `download/index.json`），确认 OpenTUI 和 opencode-pty 都还能编 |
+| `no toSafeNumberPointer in .../core` | OpenTUI переименовал или переписал FFI-обёртку указателей | Проверить, как теперь конвертируется указатель из `ot_context_create`, и обновить `scripts/patch-opentui-pointer.mjs`; без этой правки TUI падает на Android с tagged pointers |
 | `opentui-android.patch` / `opencode-pty-termux.patch` / `bun-pty-android.patch` 打不上 | 组件的新版本改了补丁涉及的代码 | 在新版本源码上重做补丁（`work/natives.json` 里有 commit），补丁一律 fuzz 0 |
 | `fff-bun-android.patch does not apply` | FFF 的 Bun wrapper 变了 | 重做补丁，`src/ffi.ts` 和 `dist/index.js` 都要改；手机上可以用 Release 里的 `libfff_c.so` 直接测 wrapper |
 | `a native asset in the binary is not Bionic` | 产物里出现了新的原生模块 | 看 `work/build/native-assets.json`，见 [native-assets.md](native-assets.md) |

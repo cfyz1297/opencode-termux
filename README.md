@@ -65,7 +65,14 @@ The build cannot run inside Termux: the Android Bun reports `process.platform` a
 
 Versions of the native components and of Bun are not pinned in this repository, they follow OpenCode's own `bun.lock` and `package.json`: when upstream bumps a dependency such as OpenTUI, the build compiles that version from source automatically (GitHub sources fetched by commit, npm packages checked against the lockfile integrity, Bun against the release `SHASUMS256.txt`) with no manual version edits. Patches are applied at fuzz 0: if an upstream change breaks a patch, the build fails instead of shipping an unverified binary.
 
+### Android 17 and tagged heap pointers
+
+Android 17 tags heap pointers in the top byte (TBI). OpenTUI converts the context pointer from `ot_context_create` into a JS number and throws `Pointer exceeds safe integer range` once the tagged value is above `Number.MAX_SAFE_INTEGER`, so the TUI never starts. Rebuilding the native library does not help: the check lives in OpenTUI's JavaScript, and it is the same in 0.7.x. The build masks the tag (`scripts/patch-opentui-pointer.mjs`, see [native assets](docs/native-assets.md#opentui-pointer-boundary)).
+
+If `opencode` exits with that message on such a device, the installed build predates the fix: re-run the install command, or run `opencode upgrade`.
+
 ### CI
+
 
 GitHub Actions builds on ARM64 runners, and every Bionic step runs inside the official Termux Docker image:
 
@@ -156,7 +163,14 @@ bun build --compile (glibc-хост, встраивается официальн
 
 Версии нативных компонентов и Bun не зафиксированы в этом репозитории, а берутся из `bun.lock` и `package.json` самого OpenCode: когда апстрим обновляет OpenTUI или другой зависимый пакет, сборка автоматически компилирует соответствующую версию из исходников (исходники GitHub скачиваются по commit, npm-пакеты сверяются с integrity из lockfile, Bun — с `SHASUMS256.txt` релиза), без ручной правки номеров версий. Патчи применяются с fuzz 0: если изменения апстрима ломают патч, сборка падает, а не выпускает непроверенный файл.
 
+### Android 17 и тегированные указатели
+
+Android 17 тегирует указатели кучи в старшем байте (TBI). OpenTUI конвертирует указатель контекста из `ot_context_create` в JS-number и, когда тегированное значение больше `Number.MAX_SAFE_INTEGER`, бросает `Pointer exceeds safe integer range` — TUI не стартует. Пересборка нативной библиотеки не помогает: проверка живёт в JavaScript OpenTUI и в 0.7.x она та же. Сборка срезает тег (`scripts/patch-opentui-pointer.mjs`, см. [нативные компоненты](docs/native-assets.md#opentui-pointer-boundary)).
+
+Если `opencode` завершается с этим сообщением на таком устройстве, установленная сборка старше исправления: перезапустите команду установки или `opencode upgrade`.
+
 ### CI
+
 
 GitHub Actions собирает на ARM64-раннере, часть с Bionic выполняется в официальном Docker-образе Termux:
 
