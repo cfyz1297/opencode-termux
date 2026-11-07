@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..ce88c79 100644
+index eebdf8b..06207db 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -32,7 +32,7 @@ index eebdf8b..ce88c79 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -928,6 +935,50 @@ fn buildSingleTarget(
+@@ -928,6 +935,46 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -51,10 +51,6 @@ index eebdf8b..ce88c79 100644
 +    translate.defineCMacro("__ANDROID_MIN_SDK_VERSION__", b.fmt("{d}", .{target.result.os.version_range.linux.android}));
 +    translate.defineCMacro("_Nullable", "");
 +    translate.defineCMacro("_Nonnull", "");
-+    // Zig 0.17 gives translate-c -lc, and for a target it has no libc of its
-+    // own it then adds the build host's headers (glibc's /usr/include). The
-+    // NDK headers above are this target's libc.
-+    translate.link_libc = false;
 +}
 +
 +// opencode-termux: link against the NDK sysroot and raise PT_TLS alignment to
@@ -83,7 +79,7 @@ index eebdf8b..ce88c79 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +1000,8 @@ fn buildTarget(
+@@ -949,6 +996,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -92,7 +88,7 @@ index eebdf8b..ce88c79 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1044,7 @@ fn createLibraries(
+@@ -991,6 +1040,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;

@@ -75,6 +75,15 @@ tar -xzf "$NATIVE/src/vendor/zig-deps.tar.gz" -C "$NATIVE/zig-deps"
   export OPENCODE_TERMUX_TLS_ALIGN="$ROOT/native/tls-align.S"
   # Zig 0.17's `zig build` takes the global cache from the environment only.
   export ZIG_GLOBAL_CACHE_DIR="$ROOT/work/toolchains/zig-cache"
+  # Zig 0.17's translate-c helper never sees the -target zig passes it (it
+  # comes after `--`, and the helper parses only --target=), so it believes it
+  # translates for this host and appends the host's /usr/include after the NDK
+  # headers; Bionic's limits.h then #include_next's glibc's. Given
+  # NIX_CFLAGS_COMPILE, Zig takes the native include paths from it instead of
+  # /usr, so name the NDK's. Only native compilations read it, and nothing
+  # this build compiles for the host uses system headers.
+  SYSROOT_INCLUDE="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+  export NIX_CFLAGS_COMPILE="-isystem $SYSROOT_INCLUDE -isystem $SYSROOT_INCLUDE/aarch64-linux-android"
   timeout --kill-after=60 2700 "$STAGE/zig/zig" build --cache-dir "$STAGE/cache" \
     -Dlibrary-target="$TARGET" -Doptimize=ReleaseFast --summary failures
 )
