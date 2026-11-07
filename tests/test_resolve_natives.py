@@ -175,8 +175,8 @@ class ResolveTests(unittest.TestCase):
     def test_opentui_needing_a_newer_zig_fails_early(self):
         net = FakeNetwork()
         net.opentui = source_archive("opentui-abc", {
-            "packages/native/build.zig.zon": '.{ .minimum_zig_version = "0.17.0", }'})
-        with self.assertRaisesRegex(resolver.ResolveError, "needs Zig 0.17.0"):
+            "packages/native/build.zig.zon": '.{ .minimum_zig_version = "0.18.0", }'})
+        with self.assertRaisesRegex(resolver.ResolveError, "needs Zig 0.18.0"):
             self.resolve(net=net)
 
 

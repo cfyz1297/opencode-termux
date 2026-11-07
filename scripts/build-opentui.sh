@@ -2,7 +2,7 @@
 # Build OpenTUI's native library for Android from source with Zig.
 #
 # Runs on a glibc AArch64 Linux host, cross-compiling against the Android
-# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig 0.16
+# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig 0.17
 # works in neither of the other places: in Termux it sees a Bionic host and
 # cannot build its own build runner for it, and under proot its atomic file
 # writes (linkat with AT_EMPTY_PATH) fail with EINVAL, which it aborts on.
