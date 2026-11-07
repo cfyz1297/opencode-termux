@@ -4,10 +4,12 @@ Official [OpenCode](https://github.com/anomalyco/opencode) 2 running natively in
 
 Built from OpenCode sources with every native component rebuilt for Bionic; the result is loaded directly by the Android linker — no glibc, no proot, no compatibility layer.
 
+Native OpenCode (the AI coding agent CLI) for Android Termux — freshly rebuilt releases that follow upstream tags daily. 安卓 Termux 原生 OpenCode：原生 Bionic 构建，无 glibc、无 proot，跟随官方版本每日发布。Нативный OpenCode (CLI-агент для кодинга) в Termux: сборка под Bionic, без glibc и proot, релизы следуют за апстримом ежедневно.
+
 [![build](https://github.com/cfyz1297/opencode-termux/actions/workflows/build.yml/badge.svg)](https://github.com/cfyz1297/opencode-termux/actions/workflows/build.yml)
 [![release](https://img.shields.io/github/v/release/cfyz1297/opencode-termux?display_name=tag&sort=semver)](https://github.com/cfyz1297/opencode-termux/releases/latest)
 
-English · [Русский](#русский)
+English · [Русский](#русский) · [中文](#中文)
 
 ## English
 
@@ -208,3 +210,29 @@ make verify
 На стороне Termux нужны `clang`, `proot-distro`, `ndk-multilib`, `ndk-multilib-native-static`, `curl`, `patch` и Python; кросс-компиляция Rust/Zig под Android идёт через Ubuntu в proot. На стороне сборки OpenCode нужны Node.js 22+, Python, `patch` и компилятор C/C++ (его используют установочные скрипты зависимостей апстрима через node-gyp).
 
 Сторонние компоненты и их лицензии — в [THIRD_PARTY.md](THIRD_PARTY.md).
+
+## 中文
+
+### 安装
+
+要求：AArch64，Android 9（API 28）及以上。
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cfyz1297/opencode-termux/main/install.sh | bash
+```
+
+### 更新
+
+`opencode upgrade` 可升级到新版本；也可重新运行安装命令。
+
+### 是什么
+
+官方 [OpenCode](https://github.com/anomalyco/opencode) 2 的原生 Termux 版本：所有原生组件按 Bionic 重新编译，由 Android linker 直接加载，无 glibc、无 proot、无兼容层。发布由每日定时 CI 跟随上游，包含 ELF 审计、FFFF / watcher / PTY 冒烟测试与真实 TUI 启动验收。
+
+### 移动客户端
+
+配套 Android 应用（会话聊天界面）：[opencode-mobile](https://github.com/cfyz1297/opencode-mobile/releases)。
+
+### CI
+
+`bionic` job 在 GitHub ARM64 runner 与官方 [termux/termux-docker](https://github.com/termux/termux-docker) AArch64 镜像之间交替运行：先编译原生组件，然后在 runner 上重新编译 OpenCode，最后回到 Termux 验收。详情见 [docs/ci.md](docs/ci.md)（英文）。
