@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..1eb1b27 100644
+index eebdf8b..01e62a2 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -74,8 +74,8 @@ index eebdf8b..1eb1b27 100644
 +        \\msvc_lib_dir=
 +        \\kernel32_lib_dir=
 +        \\darwin_sdk_dir=
-+        \\gcc_dir=
-+    , .{ include, include, library })));
++        \\cc_dir={s}/24
++    , .{ include, include, library, library })));
 +    module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "c++", "v1" }) });
 +    module.addLibraryPath(.{ .cwd_relative = library });
 +    const tls_align = b.graph.environ_map.get("OPENCODE_TERMUX_TLS_ALIGN") orelse std.debug.panic("OPENCODE_TERMUX_TLS_ALIGN is not set", .{});
