@@ -63,10 +63,26 @@ def lock_text(**overrides):
     return body.replace("\n}", ",\n}").replace('"\n  }', '",\n  }').replace("]\n", "],\n")
 
 
+def zig_zon(version):
+    return f'.{{ .minimum_zig_version = "{version}", }}'
+
+
+def process_daemon_workflow(zig):
+    return f"env:\n  CARGO_TERM_COLOR: always\n  ZIG_VERSION: {zig}\n  GNU_GLIBC_VERSION: \"2.30\"\n"
+
+
+def newer_minor(version):
+    major, minor, _ = resolver.version_tuple(version)
+    return f"{major}.{minor + 1}.0"
+
+
 class FakeNetwork:
     def __init__(self, files=None, tags=None):
         self.opentui = source_archive("opentui-abc", {
-            "packages/native/build.zig.zon": '.{ .minimum_zig_version = "0.16.0", }'})
+            "packages/native/build.zig.zon": zig_zon(VERSIONS["opentui"]["zig"])})
+        self.opencode = source_archive("opencode-abc", {
+            ".github/workflows/release-process-daemon.yml": process_daemon_workflow(VERSIONS["opencode_pty"]["zig"]),
+            "packages/process-daemon/Cargo.toml": "[package]\n"})
         self.files = {
             "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/SHASUMS256.txt": SHASUMS,
             "https://registry.npmjs.org/@parcel/watcher/-/watcher-2.5.1.tgz": WATCHER,
@@ -84,6 +100,8 @@ class FakeNetwork:
     def fetch(self, url):
         if url.startswith("https://codeload.github.com/anomalyco/opentui/"):
             return self.opentui
+        if url.startswith("https://codeload.github.com/anomalyco/opencode/"):
+            return self.opencode
         if url.startswith("https://codeload.github.com/"):
             return url.encode()
         return self.files[url]
@@ -109,11 +127,14 @@ class ResolveTests(unittest.TestCase):
             "fff": "0.10.5", "rust_pty": "0.4.11", "opencode_pty": "0.4.0"})
 
     def test_github_sources_are_fetched_by_commit(self):
-        doc = self.resolve()
+        net = FakeNetwork()
+        doc = self.resolve(net=net)
         pty = doc["opencode_pty"]
         self.assertEqual(pty["tag"], "process-daemon-v0.4.0")
         self.assertEqual(pty["source_url"], "https://codeload.github.com/anomalyco/opencode/tar.gz/" + "4" * 40)
-        self.assertEqual(pty["source_sha256"], hashlib.sha256(pty["source_url"].encode()).hexdigest())
+        self.assertEqual(pty["source_sha256"], hashlib.sha256(net.opencode).hexdigest())
+        rust_pty = doc["rust_pty"]
+        self.assertEqual(rust_pty["source_sha256"], hashlib.sha256(rust_pty["source_url"].encode()).hexdigest())
         # Recipe fields the build scripts read pass through.
         self.assertEqual((pty["source_dir"], pty["target"]),
                          ("packages/process-daemon", "aarch64-unknown-linux-musl"))
@@ -172,12 +193,55 @@ class ResolveTests(unittest.TestCase):
         with self.assertRaisesRegex(resolver.ResolveError, "v0.4.11 not found in sursaone/bun-pty"):
             self.resolve(net=net)
 
+    def test_zig_built_components_say_which_zig(self):
+        doc = self.resolve()
+        # build-opentui.sh and build-opencode-pty.sh look this up in versions.json's "zig".
+        self.assertEqual(doc["opentui"]["zig"], VERSIONS["opentui"]["zig"])
+        self.assertEqual(doc["opencode_pty"]["zig"], VERSIONS["opencode_pty"]["zig"])
+        self.assertNotIn("zig", doc["fff"])
+
     def test_opentui_needing_a_newer_zig_fails_early(self):
+        newer = newer_minor(VERSIONS["opentui"]["zig"])
         net = FakeNetwork()
-        net.opentui = source_archive("opentui-abc", {
-            "packages/native/build.zig.zon": '.{ .minimum_zig_version = "0.17.0", }'})
-        with self.assertRaisesRegex(resolver.ResolveError, "needs Zig 0.17.0"):
+        net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon(newer)})
+        with self.assertRaisesRegex(resolver.ResolveError, f"OpenTUI 0.8.0 needs Zig {newer}"):
             self.resolve(net=net)
+
+    def test_opentui_on_an_older_zig_resolves(self):
+        net = FakeNetwork()
+        net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon("0.1.0")})
+        self.assertEqual(self.resolve(net=net)["opentui"]["version"], "0.8.0")
+
+    def test_opencode_pty_on_another_zig_minor_fails_early(self):
+        pinned = VERSIONS["opencode_pty"]["zig"]
+        major, minor, _ = resolver.version_tuple(pinned)
+        # Ghostty takes neither a newer nor an older minor version.
+        for other in (newer_minor(pinned), f"{major}.{minor - 1}.0"):
+            net = FakeNetwork()
+            net.opencode = source_archive("opencode-abc", {
+                ".github/workflows/release-process-daemon.yml": process_daemon_workflow(other)})
+            with self.subTest(other=other), self.assertRaisesRegex(
+                    resolver.ResolveError, f"opencode-pty 0.4.0 needs Zig {other}; versions.json gives it {pinned}"):
+                self.resolve(net=net)
+
+    def test_opencode_pty_needing_a_newer_patch_fails_early(self):
+        major, minor, patch = resolver.version_tuple(VERSIONS["opencode_pty"]["zig"])
+        newer = f"{major}.{minor}.{patch + 1}"
+        net = FakeNetwork()
+        net.opencode = source_archive("opencode-abc", {
+            ".github/workflows/release-process-daemon.yml": process_daemon_workflow(f'"{newer}"')})
+        with self.assertRaisesRegex(resolver.ResolveError, f"needs Zig {newer}"):
+            self.resolve(net=net)
+
+    def test_a_source_that_does_not_say_is_not_checked(self):
+        net = FakeNetwork()
+        net.opencode = source_archive("opencode-abc", {"packages/process-daemon/Cargo.toml": "[package]\n"})
+        self.assertEqual(self.resolve(net=net)["opencode_pty"]["version"], "0.4.0")
+
+    def test_a_zig_versions_json_does_not_list_fails(self):
+        versions = dict(VERSIONS, opentui=dict(VERSIONS["opentui"], zig="9.9.9"))
+        with self.assertRaisesRegex(resolver.ResolveError, "gives opentui Zig 9.9.9 but has no such entry"):
+            self.resolve(versions=versions)
 
 
 class LockParserTests(unittest.TestCase):
@@ -200,6 +264,18 @@ class RecipeTests(unittest.TestCase):
 
     def test_bun_recipe_names_both_assets(self):
         self.assertEqual(set(VERSIONS["bun"]), {"android_asset", "host_asset"})
+
+    def test_zig_built_components_name_a_listed_zig(self):
+        for key in ("opentui", "opencode_pty"):
+            self.assertIn(VERSIONS[key]["zig"], VERSIONS["zig"], key)
+
+    def test_zig_entries_are_that_release(self):
+        for version, zig in VERSIONS["zig"].items():
+            self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+            for arch in ("aarch64", "x86_64"):
+                self.assertEqual(zig[f"{arch}_linux_url"],
+                                 f"https://ziglang.org/download/{version}/zig-{arch}-linux-{version}.tar.xz")
+                self.assertRegex(zig[f"{arch}_linux_sha256"], r"^[0-9a-f]{64}$")
 
 
 if __name__ == "__main__":

@@ -16,7 +16,8 @@ make test                        # 回归测试，几秒，不联网
 | `resolve_natives: X is not in bun.lock` | 上游改了原生包的名字或不再用它 | 在 `tools/swap_native_assets.py` 改包名，源码仓库或 tag 格式变了再改 `versions.json` 的配方 |
 | `resolve_natives: tag ... not found in ...` | 组件的 tag 命名变了 | 改 `versions.json` 里这个组件的 `tag` 格式 |
 | `resolve_natives: expected one version` | 同一组件装了两个版本，或几个包的版本对不上 | 看 `bun.lock`，通常是上游升级到一半；等上游修好，或在 `swap_native_assets.py` 里处理 |
-| `OpenTUI X needs Zig Y` | OpenTUI 要求更新的 Zig | 在 `versions.json` 升级 `zig`（URL 和 SHA-256 见 ziglang.org 的 `download/index.json`），确认 OpenTUI 和 opencode-pty 都还能编 |
+| `OpenTUI X needs Zig Y` / `opencode-pty X needs Zig Y` | 组件要求另一个 Zig | 在 `versions.json` 的 `zig` 里加上这个版本（URL 和 SHA-256 见 ziglang.org 的 `download/index.json`），再把该组件的 `zig` 改成它。两者各用各的：OpenTUI 只接受它 `build.zig` 列出的确切版本，opencode-pty 内的 Ghostty 只接受上游发布时用的那个次版本（`release-process-daemon.yml` 的 `ZIG_VERSION`）。不再被引用的 Zig 可以删掉 |
+| `versions.json gives X Zig Y but has no such entry` | 组件指向的 Zig 没登记 | 在 `zig` 里加上它，或改回已登记的版本 |
 | `opentui-android.patch` / `opencode-pty-termux.patch` / `bun-pty-android.patch` 打不上 | 组件的新版本改了补丁涉及的代码 | 在新版本源码上重做补丁（`work/natives.json` 里有 commit），补丁一律 fuzz 0 |
 | `fff-bun-android.patch does not apply` | FFF 的 Bun wrapper 变了 | 重做补丁，`src/ffi.ts` 和 `dist/index.js` 都要改；手机上可以用 Release 里的 `libfff_c.so` 直接测 wrapper |
 | `a native asset in the binary is not Bionic` | 产物里出现了新的原生模块 | 看 `work/build/native-assets.json`，见 [native-assets.md](native-assets.md) |
@@ -80,4 +81,5 @@ git add -A && git diff --cached > ../../../patches/opencode-0002-update-from-ter
 - **OpenCode 2 只在 git 仓库里用 FFF。** 其他目录走 ripgrep，所以 `serve_smoke.py` 先 `git init`，并确认服务端把它认作 git 项目；verify 容器因此要装 git。
 - **FFF 的搜索要等扫描。** 大目录里扫描还没完成搜索就返回空，所以 `serve_smoke.py` 用一个只有两个文件的小目录，并且重试到超时。
 - **opencode-pty 把 socket 放在 `/tmp`。** Android 没有 `/tmp`，daemon 一启动就退出（`Permission denied`）；补丁改到 `$PREFIX/tmp`。用 `proot -b $PREFIX/tmp:/tmp` 运行上游的二进制可以在手机上对照验证。
+- **Zig 0.17 的 libc 文件要写全字段。** 缺了新加的 `darwin_sdk_dir` 就解析失败；Linux 目标（Android 也算）的 `crtbegin_so.o`/`crtend_so.o` 改从 `cc_dir`（旧名 `gcc_dir`）找，它空着也会失败。`opentui-android.patch` 让它和 `crt_dir` 指向同一个 NDK 目录。这类问题补丁照样按 fuzz 0 打上，要到链接时才报错；在手机上用 `zig build-lib -dynamic -target aarch64-linux-android.28 --libc <文件>` 链接一个小库就能先验证（`zig build` 本身在 Termux 里跑不起来）。
 - Android 上 `/tmp` 不可写，临时文件放 `$TMPDIR`。

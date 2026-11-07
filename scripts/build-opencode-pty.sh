@@ -32,9 +32,10 @@ read -r VERSION SOURCE_URL SOURCE_SHA SOURCE_DIR TARGET ZIG_VERSION ZIG_URL ZIG_
   python3 - "$ROOT/versions.json" "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))
-p, z = json.load(open(sys.argv[2]))["opencode_pty"], x["zig"]
+p = json.load(open(sys.argv[2]))["opencode_pty"]
+z = x["zig"][p["zig"]]
 print(p["version"], p["source_url"], p["source_sha256"], p["source_dir"], p["target"],
-      z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"])
+      p["zig"], z["aarch64_linux_url"], z["aarch64_linux_sha256"])
 PY
 )
 

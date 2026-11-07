@@ -2,10 +2,11 @@
 # Build OpenTUI's native library for Android from source with Zig.
 #
 # Runs on a glibc AArch64 Linux host, cross-compiling against the Android
-# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig 0.16
+# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig
 # works in neither of the other places: in Termux it sees a Bionic host and
-# cannot build its own build runner for it, and under proot its atomic file
-# writes (linkat with AT_EMPTY_PATH) fail with EINVAL, which it aborts on.
+# cannot build its own build runner for it (0.17's crashes with an illegal
+# instruction), and under proot Zig 0.16's atomic file writes (linkat with
+# AT_EMPTY_PATH) fail with EINVAL, which it aborts on.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,9 +33,10 @@ read -r VERSION SOURCE_URL SOURCE_SHA ZIG_VERSION ZIG_URL ZIG_SHA API < <(
   python3 - "$ROOT/versions.json" "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))
-p, z = json.load(open(sys.argv[2]))["opentui"], x["zig"]
+p = json.load(open(sys.argv[2]))["opentui"]
+z = x["zig"][p["zig"]]
 print(p["version"], p["source_url"], p["source_sha256"],
-      z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"], x["android_ndk"]["api"])
+      p["zig"], z["aarch64_linux_url"], z["aarch64_linux_sha256"], x["android_ndk"]["api"])
 PY
 )
 # The NDK headers refuse a target without an API level.

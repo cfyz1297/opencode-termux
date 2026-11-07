@@ -12,6 +12,10 @@ says where each one's source lives:
 - npm sources: the registry tarball, checked against bun.lock's integrity hash.
 - Bun: the release assets, checked against the release's SHASUMS256.txt.
 
+Zig is a toolchain we choose, not a dependency OpenCode installs: each component
+built with it names one of versions.json's "zig" entries, and resolving fails
+when the component's source asks for a Zig that entry cannot be.
+
 Writes work/natives.json with the fields the build scripts read for each
 component (version, source_url, source_sha256, ...) and where each came from.
 
@@ -163,19 +167,54 @@ def resolve_npm(net: Network, lock: dict, name: str, version: str) -> dict:
     return {"source_url": url, "source_sha256": hashlib.sha256(data).hexdigest()}
 
 
-def zig_minimum(archive: bytes) -> str | None:
-    """minimum_zig_version from OpenTUI's packages/native/build.zig.zon."""
+def archive_text(archive: bytes, path: str) -> str | None:
+    """`path` in a GitHub source archive, below the archive's top directory."""
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         for member in tar:
-            if member.name.endswith("/packages/native/build.zig.zon"):
-                text = tar.extractfile(member).read().decode()
-                match = re.search(r'\.minimum_zig_version\s*=\s*"([^"]+)"', text)
-                return match.group(1) if match else None
+            if member.isfile() and member.name.partition("/")[2] == path:
+                return tar.extractfile(member).read().decode()
     return None
+
+
+def zig_needed(key: str, archive: bytes) -> str | None:
+    """The Zig a component's source asks for, where it says so."""
+    if key == "opentui":
+        # The oldest Zig OpenTUI's build accepts.
+        text = archive_text(archive, "packages/native/build.zig.zon")
+        pattern = r'\.minimum_zig_version\s*=\s*"([^"]+)"'
+    elif key == "opencode_pty":
+        # The Zig upstream releases opencode-pty with: the Ghostty it builds
+        # accepts no other minor version.
+        text = archive_text(archive, ".github/workflows/release-process-daemon.yml")
+        pattern = r'^\s*ZIG_VERSION:\s*"?(\d[^"\s]*)"?\s*$'
+    else:
+        return None
+    match = text and re.search(pattern, text, re.MULTILINE)
+    return match.group(1) if match else None
 
 
 def version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in re.findall(r"\d+", version.split("-")[0]))
+
+
+def check_zig(versions: dict, key: str, version: str, archive: bytes) -> None:
+    """Fail now, not after an hour of building, when the Zig versions.json gives a component cannot build it."""
+    pinned = versions[key].get("zig")
+    if pinned is None:
+        return
+    if pinned not in versions["zig"]:
+        raise ResolveError(f"versions.json gives {key} Zig {pinned} but has no such entry under \"zig\"")
+    needed = zig_needed(key, archive)
+    if not needed:
+        return
+    label = {"opentui": "OpenTUI", "opencode_pty": "opencode-pty"}[key]
+    needed_v, pinned_v = version_tuple(needed), version_tuple(pinned)
+    fits = needed_v <= pinned_v
+    if key == "opencode_pty":
+        # Ghostty's requireZig: the same minor version, at least that patch.
+        fits = fits and needed_v[:2] == pinned_v[:2]
+    if not fits:
+        raise ResolveError(f"{label} {version} needs Zig {needed}; versions.json gives it {pinned}")
 
 
 def resolve_bun(net: Network, recipe: dict, package_json: dict) -> dict:
@@ -220,11 +259,7 @@ def resolve(source: Path, versions: dict, net: Network) -> dict:
         if "github" in recipe:
             found, archive = resolve_github(net, recipe, version)
             entry.update(found)
-            if key == "opentui":
-                minimum = zig_minimum(archive)
-                pinned = versions["zig"]["version"]
-                if minimum and version_tuple(minimum) > version_tuple(pinned):
-                    raise ResolveError(f"OpenTUI {version} needs Zig {minimum}; versions.json pins {pinned}")
+            check_zig(versions, key, version, archive)
         else:
             npm = recipe["npm"]
             if single_version(lock, [npm]) != version:
