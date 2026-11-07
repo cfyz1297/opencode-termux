@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..17a9367 100644
+index eebdf8b..a840e44 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -32,7 +32,7 @@ index eebdf8b..17a9367 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -928,6 +935,48 @@ fn buildSingleTarget(
+@@ -928,6 +935,51 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -53,6 +53,9 @@ index eebdf8b..17a9367 100644
 +    // Zig's C frontend neither derives the API level from the target, as clang
 +    // does, nor accepts the nullability the NDK puts on array parameters.
 +    translate.defineCMacro("__ANDROID_MIN_SDK_VERSION__", b.fmt("{d}", .{target.result.os.version_range.linux.android}));
++    // opencode-termux: aro's bundled limits.h reaches into the host's glibc
++    // through include_next when the target counts as hosted.
++    translate.defineCMacro("__STDC_HOSTED__", "0");
 +    translate.defineCMacro("_Nullable", "");
 +    translate.defineCMacro("_Nonnull", "");
 +}
@@ -81,7 +84,7 @@ index eebdf8b..17a9367 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +998,8 @@ fn buildTarget(
+@@ -949,6 +1001,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -90,7 +93,7 @@ index eebdf8b..17a9367 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1042,7 @@ fn createLibraries(
+@@ -991,6 +1045,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
