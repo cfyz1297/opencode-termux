@@ -71,8 +71,10 @@ tar -xzf "$NATIVE/src/vendor/zig-deps.tar.gz" -C "$NATIVE/zig-deps"
   cd "$NATIVE"
   export ANDROID_NDK_HOME="$NDK"
   export OPENCODE_TERMUX_TLS_ALIGN="$ROOT/native/tls-align.S"
+  # Zig 0.17 dropped --global-cache-dir; it still honors the env var.
+  export ZIG_GLOBAL_CACHE_DIR="$ROOT/work/toolchains/zig-cache"
   timeout --kill-after=60 2700 "$STAGE/zig/zig" build \
-    --cache-dir "$STAGE/cache" --global-cache-dir "$ROOT/work/toolchains/zig-cache" \
+    --cache-dir "$STAGE/cache" \
     -Dlibrary-target="$TARGET" -Doptimize=ReleaseFast --summary failures
 )
 cp -L "$NATIVE/lib/$TARGET/libopentui.so" "$OUT_DIR/.libopentui.new.so"
