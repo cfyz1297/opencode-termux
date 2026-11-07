@@ -1,8 +1,8 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index 84cafc7..503cc29 100644
+index eebdf8b..7055ca9 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
-@@ -367,7 +367,8 @@ fn addNativeAudioDependencies(
+@@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
          .macos => addMacOSSystemLibraries(b, module, macos_sdk_path.?),
          .linux => {
              module.linkSystemLibrary("dl", .{});
@@ -12,7 +12,7 @@ index 84cafc7..503cc29 100644
              module.linkSystemLibrary("m", .{});
          },
          else => {},
-@@ -426,6 +427,11 @@ fn addTranslatedCImports(
+@@ -512,6 +513,11 @@ fn addTranslatedCImports(
      });
      yoga_translate.addIncludePath(yoga_dep.path(""));
      module.addImport("yoga", yoga_translate.createModule());
@@ -24,7 +24,7 @@ index 84cafc7..503cc29 100644
      addContextABIHeader(b, module, optimize, target);
  }
  
-@@ -440,6 +446,7 @@ fn addContextABIHeader(
+@@ -526,6 +532,7 @@ fn addContextABIHeader(
          .target = target,
          .optimize = optimize,
      });
@@ -32,7 +32,7 @@ index 84cafc7..503cc29 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -807,6 +814,44 @@ fn buildSingleTarget(
+@@ -928,6 +935,44 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -77,7 +77,7 @@ index 84cafc7..503cc29 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -828,6 +873,8 @@ fn buildTarget(
+@@ -949,6 +994,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -86,19 +86,19 @@ index 84cafc7..503cc29 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -870,6 +917,7 @@ fn createLibraries(
+@@ -991,6 +1038,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
-     if (target.result.os.tag == .linux and optimize != .Debug) shared.build_id = .sha1;
+     if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
 +    if (target.result.abi == .android) addAndroidSysroot(b, shared, module);
-     const static = b.addLibrary(.{
-         // COFF uses .lib for both archives and DLL import libraries.
-         .name = if (target.result.os.tag == .windows) "opentui-static" else LIB_NAME,
+     // Zig's default DLL entry skips the MinGW CRT startup, so CRT state such as
+     // the DLL atexit table would stay uninitialized. MinGW's strtod registers
+     // there, and both the Zig code and FFmpeg call it, so this applies with or
 diff --git a/packages/native/src/clipboard/host.zig b/packages/native/src/clipboard/host.zig
-index 1edeab4..6835c76 100644
+index 0669787..13d133f 100644
 --- a/packages/native/src/clipboard/host.zig
 +++ b/packages/native/src/clipboard/host.zig
-@@ -105,7 +105,14 @@ extern "c" fn pthread_peekjoin_np(thread: std.Thread.Handle, result: ?*?*anyopaq
+@@ -103,7 +103,14 @@ extern "c" fn pthread_peekjoin_np(thread: std.Thread.Handle, result: ?*?*anyopaq
  
  fn tryJoinThread(thread: std.Thread) bool {
      return switch (builtin.os.tag) {
@@ -112,5 +112,5 @@ index 1edeab4..6835c76 100644
 +            break :blk true;
 +        } else switch (pthread_tryjoin_np(thread.getHandle(), null)) {
              0 => true,
-             @intFromEnum(std.posix.E.BUSY) => false,
+             @backingInt(std.posix.E.BUSY) => false,
              else => false,
