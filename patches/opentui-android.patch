@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..7055ca9 100644
+index eebdf8b..8a139ae 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -32,7 +32,7 @@ index eebdf8b..7055ca9 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -928,6 +935,44 @@ fn buildSingleTarget(
+@@ -928,6 +935,47 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -43,6 +43,9 @@ index eebdf8b..7055ca9 100644
 +}
 +
 +fn addAndroidIncludes(b: *std.Build, translate: *std.Build.Step.TranslateC, target: std.Build.ResolvedTarget) void {
++    // opencode-termux: Zig 0.17 links libc by default; for Android it has no
++    // Bionic bundle and falls back to the host's glibc headers.
++    translate.link_libc = false;
 +    const include = b.pathJoin(&.{ androidSysroot(b), "include" });
 +    translate.addSystemIncludePath(.{ .cwd_relative = include });
 +    translate.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "aarch64-linux-android" }) });
@@ -77,7 +80,7 @@ index eebdf8b..7055ca9 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +994,8 @@ fn buildTarget(
+@@ -949,6 +997,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -86,7 +89,7 @@ index eebdf8b..7055ca9 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1038,7 @@ fn createLibraries(
+@@ -991,6 +1041,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
