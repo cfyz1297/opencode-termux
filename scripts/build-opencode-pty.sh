@@ -28,13 +28,14 @@ done
 # work/natives.json: what tools/resolve_natives.py found for the OpenCode source (make resolve-natives).
 NATIVES="${NATIVES_JSON:-$ROOT/work/natives.json}"
 [ -f "$NATIVES" ] || { echo "build-opencode-pty: $NATIVES is missing; run make resolve-natives" >&2; exit 1; }
-read -r VERSION SOURCE_URL SOURCE_SHA SOURCE_DIR TARGET ZIG_VERSION ZIG_URL ZIG_SHA < <(
+read -r VERSION SOURCE_URL SOURCE_SHA SOURCE_DIR TARGET ZIG_VERSION ZIG_URL ZIG_SHA GZ_VERSION GZ_URL GZ_SHA < <(
   python3 - "$ROOT/versions.json" "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))
-p, z = json.load(open(sys.argv[2]))["opencode_pty"], x["zig"]
+p, z, g = json.load(open(sys.argv[2]))["opencode_pty"], x["zig"], x["ghostty_zig"]
 print(p["version"], p["source_url"], p["source_sha256"], p["source_dir"], p["target"],
-      z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"])
+      z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"],
+      g["version"], g["aarch64_linux_url"], g["aarch64_linux_sha256"])
 PY
 )
 
@@ -68,9 +69,16 @@ tar -xzf "$SOURCE_ARCHIVE" -C "$STAGE/source" --strip-components="$STRIP" --wild
 tar -xJf "$ZIG_ARCHIVE" -C "$STAGE/zig" --strip-components=1
 patch -d "$STAGE/source" -p1 --fuzz=0 --batch < "$ROOT/patches/opencode-pty-termux.patch"
 
+# Ghostty's flat source gate requires exactly its pinned Zig; OpenTUI 0.8.1
+# needs 0.17, so the VT library gets its own 0.16.0 toolchain here.
+GZ_ARCHIVE="$ROOT/work/toolchains/zig-$GZ_VERSION.tar.xz"
+fetch "$GZ_URL" "$GZ_SHA" "$GZ_ARCHIVE"
+mkdir -p "$STAGE/zig-ghostty"
+tar -xJf "$GZ_ARCHIVE" -C "$STAGE/zig-ghostty" --strip-components=1
+
 # Upstream's wrapper: `zig build` for a baseline CPU, so Ghostty's VT library
 # does not pick up the build machine's CPU features.
-export OPENCODE_REAL_ZIG="$STAGE/zig/zig"
+export OPENCODE_REAL_ZIG="$STAGE/zig-ghostty/zig"
 export PATH="$STAGE/source/script/release-bin:$PATH"
 chmod +x "$STAGE/source/script/release-bin/zig"
 export CARGO_TARGET_DIR="$STAGE/target"
