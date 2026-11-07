@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..a840e44 100644
+index eebdf8b..1eb1b27 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -32,7 +32,7 @@ index eebdf8b..a840e44 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -928,6 +935,51 @@ fn buildSingleTarget(
+@@ -928,6 +935,52 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -73,6 +73,7 @@ index eebdf8b..a840e44 100644
 +        \\crt_dir={s}/24
 +        \\msvc_lib_dir=
 +        \\kernel32_lib_dir=
++        \\darwin_sdk_dir=
 +        \\gcc_dir=
 +    , .{ include, include, library })));
 +    module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "c++", "v1" }) });
@@ -84,7 +85,7 @@ index eebdf8b..a840e44 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +1001,8 @@ fn buildTarget(
+@@ -949,6 +1002,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -93,7 +94,7 @@ index eebdf8b..a840e44 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1045,7 @@ fn createLibraries(
+@@ -991,6 +1046,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
