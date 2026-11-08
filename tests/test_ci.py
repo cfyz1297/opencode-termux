@@ -95,7 +95,9 @@ class ReleaseNotesTests(unittest.TestCase):
         notes = self.module.release_notes(MANIFEST, "v1.2.4", "c" * 40, "-", "")
         self.assertIn("从 OpenCode 源码编译", notes)
         self.assertIn("真实 TUI 启动全部通过", notes)
-        self.assertIn("（无）", notes)
+        self.assertIn("Toolchain changes:", notes)
+        self.assertIn("Инструментальные изменения:", notes)
+        self.assertIn("工具链变更：", notes)
         failed = dict(MANIFEST, tui_smoke="skipped-cross-build", release_eligible=False)
         self.assertIn("未完成 Bionic 运行验收",
                       self.module.release_notes(failed, "v1.2.4", "c", "-", ""))

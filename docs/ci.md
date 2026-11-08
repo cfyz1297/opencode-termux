@@ -14,8 +14,8 @@ ubuntu-24.04-arm GitHub runner
 │   ├── build watcher, FFF and bun-pty for Bionic, with their smoke tests
 │   └── export the Android sysroot to the workspace
 ├── runner (glibc): make fetch-source && make compile
-│   ├── OpenTUI with Zig 0.17 against that sysroot
-│   ├── opencode-pty as a static musl executable, as upstream builds it
+│   ├── OpenTUI with the Zig it requires (0.17) against that sysroot
+│   ├── opencode-pty as a static musl executable with upstream's Zig (0.16), as upstream builds it
 │   ├── OpenCode source of the tag's commit + patches/opencode-NNNN-*.patch
 │   ├── bun install, the native assets swapped into node_modules
 │   └── bun build --compile, embedded into the pinned Android Bun

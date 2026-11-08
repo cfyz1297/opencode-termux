@@ -2,10 +2,11 @@
 # Build OpenTUI's native library for Android from source with Zig.
 #
 # Runs on a glibc AArch64 Linux host, cross-compiling against the Android
-# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig 0.17
+# sysroot that scripts/export-android-sysroot.sh copies out of Termux. Zig
 # works in neither of the other places: in Termux it sees a Bionic host and
-# cannot build its own build runner for it, and under proot its atomic file
-# writes (linkat with AT_EMPTY_PATH) fail with EINVAL, which it aborts on.
+# cannot build its own build runner for it (0.17's crashes with an illegal
+# instruction), and under proot Zig 0.16's atomic file writes (linkat with
+# AT_EMPTY_PATH) fail with EINVAL, which it aborts on.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -32,9 +33,10 @@ read -r VERSION SOURCE_URL SOURCE_SHA ZIG_VERSION ZIG_URL ZIG_SHA API < <(
   python3 - "$ROOT/versions.json" "$NATIVES" <<'PY'
 import json, sys
 x = json.load(open(sys.argv[1]))
-p, z = json.load(open(sys.argv[2]))["opentui"], x["zig"]
+p = json.load(open(sys.argv[2]))["opentui"]
+z = x["zig"][p["zig"]]
 print(p["version"], p["source_url"], p["source_sha256"],
-      z["version"], z["aarch64_linux_url"], z["aarch64_linux_sha256"], x["android_ndk"]["api"])
+      p["zig"], z["aarch64_linux_url"], z["aarch64_linux_sha256"], x["android_ndk"]["api"])
 PY
 )
 # The NDK headers refuse a target without an API level.
@@ -71,10 +73,18 @@ tar -xzf "$NATIVE/src/vendor/zig-deps.tar.gz" -C "$NATIVE/zig-deps"
   cd "$NATIVE"
   export ANDROID_NDK_HOME="$NDK"
   export OPENCODE_TERMUX_TLS_ALIGN="$ROOT/native/tls-align.S"
-  # Zig 0.17 dropped --global-cache-dir; it still honors the env var.
+  # Zig 0.17's `zig build` takes the global cache from the environment only.
   export ZIG_GLOBAL_CACHE_DIR="$ROOT/work/toolchains/zig-cache"
-  timeout --kill-after=60 2700 "$STAGE/zig/zig" build \
-    --cache-dir "$STAGE/cache" \
+  # Zig 0.17's translate-c helper never sees the -target zig passes it (it
+  # comes after `--`, and the helper parses only --target=), so it believes it
+  # translates for this host and appends the host's /usr/include after the NDK
+  # headers; Bionic's limits.h then #include_next's glibc's. Given
+  # NIX_CFLAGS_COMPILE, Zig takes the native include paths from it instead of
+  # /usr, so name the NDK's. Only native compilations read it, and nothing
+  # this build compiles for the host uses system headers.
+  SYSROOT_INCLUDE="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include"
+  export NIX_CFLAGS_COMPILE="-isystem $SYSROOT_INCLUDE -isystem $SYSROOT_INCLUDE/aarch64-linux-android"
+  timeout --kill-after=60 2700 "$STAGE/zig/zig" build --cache-dir "$STAGE/cache" \
     -Dlibrary-target="$TARGET" -Doptimize=ReleaseFast --summary failures
 )
 cp -L "$NATIVE/lib/$TARGET/libopentui.so" "$OUT_DIR/.libopentui.new.so"

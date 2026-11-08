@@ -1,5 +1,5 @@
 diff --git a/packages/native/build.zig b/packages/native/build.zig
-index eebdf8b..01e62a2 100644
+index eebdf8b..06207db 100644
 --- a/packages/native/build.zig
 +++ b/packages/native/build.zig
 @@ -452,7 +452,8 @@ fn addNativeAudioDependencies(
@@ -32,7 +32,7 @@ index eebdf8b..01e62a2 100644
      module.addImport("context_abi_c", header.createModule());
  }
  
-@@ -928,6 +935,52 @@ fn buildSingleTarget(
+@@ -928,6 +935,46 @@ fn buildSingleTarget(
      try buildTarget(b, target_str, target_str, description, optimize, build_options, macos_sdk_path);
  }
  
@@ -43,25 +43,19 @@ index eebdf8b..01e62a2 100644
 +}
 +
 +fn addAndroidIncludes(b: *std.Build, translate: *std.Build.Step.TranslateC, target: std.Build.ResolvedTarget) void {
-+    // opencode-termux: Zig 0.17 links libc by default; for Android it has no
-+    // Bionic bundle and falls back to the host's glibc headers. Pass the NDK
-+    // sysroot via -I: those headers must outrank any host system directory.
-+    translate.link_libc = false;
 +    const include = b.pathJoin(&.{ androidSysroot(b), "include" });
-+    translate.addIncludePath(.{ .cwd_relative = include });
-+    translate.addIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "aarch64-linux-android" }) });
++    translate.addSystemIncludePath(.{ .cwd_relative = include });
++    translate.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "aarch64-linux-android" }) });
 +    // Zig's C frontend neither derives the API level from the target, as clang
 +    // does, nor accepts the nullability the NDK puts on array parameters.
 +    translate.defineCMacro("__ANDROID_MIN_SDK_VERSION__", b.fmt("{d}", .{target.result.os.version_range.linux.android}));
-+    // opencode-termux: aro's bundled limits.h reaches into the host's glibc
-+    // through include_next when the target counts as hosted.
-+    translate.defineCMacro("__STDC_HOSTED__", "0");
 +    translate.defineCMacro("_Nullable", "");
 +    translate.defineCMacro("_Nonnull", "");
 +}
 +
 +// opencode-termux: link against the NDK sysroot and raise PT_TLS alignment to
-+// what Android's linker requires.
++// what Android's linker requires. Zig 0.17 wants every libc file field, and
++// takes crtbegin_so.o and crtend_so.o from cc_dir on Linux targets.
 +fn addAndroidSysroot(b: *std.Build, lib: *std.Build.Step.Compile, module: *std.Build.Module) void {
 +    const sysroot = androidSysroot(b);
 +    const include = b.pathJoin(&.{ sysroot, "include" });
@@ -73,8 +67,8 @@ index eebdf8b..01e62a2 100644
 +        \\crt_dir={s}/24
 +        \\msvc_lib_dir=
 +        \\kernel32_lib_dir=
-+        \\darwin_sdk_dir=
 +        \\cc_dir={s}/24
++        \\darwin_sdk_dir=
 +    , .{ include, include, library, library })));
 +    module.addSystemIncludePath(.{ .cwd_relative = b.pathJoin(&.{ include, "c++", "v1" }) });
 +    module.addLibraryPath(.{ .cwd_relative = library });
@@ -85,7 +79,7 @@ index eebdf8b..01e62a2 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +1002,8 @@ fn buildTarget(
+@@ -949,6 +996,8 @@ fn buildTarget(
      const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
      const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
      for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
@@ -94,7 +88,7 @@ index eebdf8b..01e62a2 100644
          const install_dir = b.addInstallArtifact(lib, .{
              .dest_dir = .{ .override = .{ .custom = install_path } },
              .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1046,7 @@ fn createLibraries(
+@@ -991,6 +1040,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
@@ -103,7 +97,7 @@ index eebdf8b..01e62a2 100644
      // the DLL atexit table would stay uninitialized. MinGW's strtod registers
      // there, and both the Zig code and FFmpeg call it, so this applies with or
 diff --git a/packages/native/src/clipboard/host.zig b/packages/native/src/clipboard/host.zig
-index 0669787..13d133f 100644
+index 0669787..7a74d44 100644
 --- a/packages/native/src/clipboard/host.zig
 +++ b/packages/native/src/clipboard/host.zig
 @@ -103,7 +103,14 @@ extern "c" fn pthread_peekjoin_np(thread: std.Thread.Handle, result: ?*?*anyopaq
@@ -115,7 +109,7 @@ index 0669787..13d133f 100644
 +            // opencode-termux: Bionic has no pthread_tryjoin_np. Once a thread
 +            // exits the kernel clears its tid and Bionic's pthread_kill reports
 +            // ESRCH, so joining it then does not block.
-+            if (std.c.pthread_kill(thread.getHandle(), @enumFromInt(0)) == 0) break :blk false;
++            if (std.c.pthread_kill(thread.getHandle(), @fromBackingInt(0)) == 0) break :blk false;
 +            thread.join();
 +            break :blk true;
 +        } else switch (pthread_tryjoin_np(thread.getHandle(), null)) {
