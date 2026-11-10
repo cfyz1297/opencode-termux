@@ -56,7 +56,7 @@ the Bun base, NDK generation or native ABI patches.
 | --- | --- |
 | Pull request | `resolve` and the regression tests only |
 | Push to `main` | Full Bionic build and tests of the latest OpenCode; published only if that version has no release yet |
-| Daily (03:17 UTC) | Checks the official latest release; a version without a release is built, tested and published |
+| Daily (03:17 and 15:17 UTC) | Checks the official latest release; a version without a release is built, tested and published |
 | `workflow_dispatch` | Builds the given version; `recut=true` re-releases an already released version as `vX.Y.Z-rN` |
 
 Add `[skip ci]` to a commit message to skip the push build, then re-release

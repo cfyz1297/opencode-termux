@@ -7,6 +7,7 @@ name: sync-upstream
 on:
   schedule:
     - cron: "43 5 * * *"
+    - cron: "43 17 * * *"
   workflow_dispatch:
 
 permissions:
