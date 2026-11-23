@@ -47,5 +47,8 @@
     "source_dir": "packages/process-daemon",
     "target": "aarch64-unknown-linux-musl",
     "zig": "0.16.0"
+  },
+  "iroh": {
+    "npm": "@number0/iroh-android-arm64"
   }
 }

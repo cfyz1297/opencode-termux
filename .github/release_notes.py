@@ -25,7 +25,7 @@ def release_notes(manifest, tag, commit, predecessor, changelog):
     bun = m.get("base_bun") or {}
     source = m.get("source") or {}
     names = {"opentui": "OpenTUI", "fff": "FFF", "watcher": "watcher", "rust_pty": "bun-pty",
-             "opencode_pty": "opencode-pty"}
+             "opencode_pty": "opencode-pty", "iroh": "iroh"}
     natives = m.get("natives") or {}
     components = " · ".join(f"{label} {natives[key]['version']}" for key, label in names.items()
                             if key in natives)
@@ -39,11 +39,13 @@ def release_notes(manifest, tag, commit, predecessor, changelog):
            or ((m.get("native_assets") or {}).get("result") != "pass"))
     if not bad:
         verification = {
-            "en": ("Verified: built from the OpenCode sources; the Termux Bionic container ran the "
-                   "native ELF audit, the FFF / watcher / PTY smoke tests and the real TUI launch."),
-            "ru": ("Приёмка: собрано из исходников OpenCode; в контейнере Termux Bionic пройдены "
-                   "ELF-аудит нативных компонентов, FFF / watcher / PTY smoke и запуск настоящего TUI."),
-            "zh": ("验收：从 OpenCode 源码编译；Termux Bionic 容器内原生组件 ELF 审计、"
+            "en": ("Verified: built from the OpenCode sources; the runner's ELF audit, the container's "
+                   "OpenTUI and iroh load checks, the FFF / watcher / PTY smoke tests and the real "
+                   "TUI launch all passed."),
+            "ru": ("Приёмка: собрано из исходников OpenCode; ELF-аудит на сборочной машине, проверка "
+                   "загрузки OpenTUI и iroh в контейнере, FFF / watcher / PTY smoke и запуск "
+                   "настоящего TUI пройдены."),
+            "zh": ("验收：从 OpenCode 源码编译；构建机上的 ELF 审计、容器内 OpenTUI 与 iroh 加载检查、"
                    "FFF / watcher / PTY 冒烟和真实 TUI 启动全部通过。"),
         }
     else:

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
+import hashlib
 import pathlib
 import struct
+import subprocess
 import sys
+import tempfile
 import unittest
-
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -14,8 +16,26 @@ from graph_format import Graph, TRAILER
 
 
 def synthetic_graph():
+    return graph_with(b"\x7fELFold-asset"), b"\x7fELFold-asset"
+
+
+def bionic_elf(payload=b""):
+    """An ELF64 aarch64 with no program headers: no interpreter, no DT_NEEDED."""
+    header = bytearray(64)
+    header[:4] = b"\x7fELF"
+    header[4] = 2  # ELFCLASS64
+    header[5] = 1  # little endian
+    header[6] = 1  # version
+    struct.pack_into("<H", header, 16, 3)       # ET_DYN
+    struct.pack_into("<H", header, 18, 0xB7)    # EM_AARCH64
+    struct.pack_into("<Q", header, 32, 64)      # e_phoff
+    struct.pack_into("<H", header, 54, 56)      # e_phentsize
+    struct.pack_into("<H", header, 56, 0)       # e_phnum
+    return bytes(header) + payload
+
+
+def graph_with(contents):
     name = b"/$bunfs/root/libopentui-test.so"
-    contents = b"\x7fELFold-asset"
     data = bytearray(name + contents)
     modules_at = len(data)
     record = bytearray(52)
@@ -25,7 +45,7 @@ def synthetic_graph():
     offsets_at = len(data)
     data.extend(struct.pack("<QIIIIII", offsets_at, modules_at, 52, 0, 0, 0, 0))
     data.extend(TRAILER)
-    return bytes(data), contents
+    return bytes(data)
 
 
 class GraphTests(unittest.TestCase):
@@ -71,6 +91,38 @@ class ElfPolicyTests(unittest.TestCase):
         )
         self.assertEqual(info.glibc_dependencies, ())
         self.assertEqual(info.unbundled_dependencies, ("libc++_shared.so",))
+
+
+class RequiredAssetTests(unittest.TestCase):
+    """--require-asset is what proves the swap reached the binary."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.graph = pathlib.Path(self.tmp.name) / "opencode.graph"
+
+    def audit(self, contents, digest, strict="--require-bionic"):
+        self.graph.write_bytes(graph_with(contents))
+        return subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "audit_native_assets.py"), str(self.graph),
+             *([strict] if strict else []), "--require-asset", digest],
+            text=True, capture_output=True,
+        )
+
+    def test_a_swapped_asset_that_reached_the_binary_passes(self):
+        contents = bionic_elf(b"iroh addon")
+        result = self.audit(contents, hashlib.sha256(contents).hexdigest())
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('"result": "pass"', result.stdout)
+
+    def test_a_missing_asset_fails_even_when_the_rest_is_bionic(self):
+        result = self.audit(bionic_elf(b"some other asset"), hashlib.sha256(b"absent").hexdigest())
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('"result": "fail"', result.stdout)
+
+    def test_require_asset_alone_is_strict(self):
+        result = self.audit(bionic_elf(b"x"), hashlib.sha256(b"absent").hexdigest(), strict=None)
+        self.assertEqual(result.returncode, 1)
 
 
 if __name__ == "__main__":

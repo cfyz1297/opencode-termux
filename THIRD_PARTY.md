@@ -11,6 +11,7 @@ The generated executable is compiled from, or links, the following upstream work
 - [portable-pty](https://github.com/wezterm/wezterm/tree/main/pty), MIT
 - [opencode-pty](https://github.com/anomalyco/opencode/tree/dev/packages/process-daemon), MIT, with
   [Ghostty](https://github.com/ghostty-org/ghostty)'s VT library, MIT, linked in
+- [iroh](https://github.com/n0-computer/iroh-ffi), MIT
 
 The build also contains transitive Rust, Zig, C and C++ dependencies under
 their respective upstream licenses. The versions follow OpenCode's lockfile;

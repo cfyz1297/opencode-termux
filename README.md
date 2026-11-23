@@ -2,7 +2,7 @@
 
 Official [OpenCode](https://github.com/anomalyco/opencode) 2 running natively in Termux.
 
-Built from OpenCode sources with every native component rebuilt for Bionic; the result is loaded directly by the Android linker — no glibc, no proot, no compatibility layer.
+Built from OpenCode sources with every native component built for Bionic (iroh uses upstream's Android prebuilt); the result is loaded directly by the Android linker — no glibc, no proot, no compatibility layer.
 
 Native OpenCode (the AI coding agent CLI) for Android Termux — freshly rebuilt releases that follow upstream tags daily. 安卓 Termux 原生 OpenCode：原生 Bionic 构建，无 glibc、无 proot，跟随官方版本每日发布。Нативный OpenCode (CLI-агент для кодинга) в Termux: сборка под Bionic, без glibc и proot, релизы следуют за апстримом ежедневно.
 
@@ -59,7 +59,7 @@ The build starts from the sources of the OpenCode release tag and follows upstre
 OpenCode vX.Y.Z sources
         │ Android patches (patches/opencode-NNNN-*.patch)
         │ bun install
-        │ swap in native components built from source (Bionic libraries, static opencode-pty)
+        │ swap in native components rebuilt for Bionic, plus the official Android prebuilt of iroh
         ▼
 bun build --compile (glibc host, embeds the official Android Bun)
         │ acceptance run inside Termux
@@ -113,7 +113,7 @@ Third-party components and their licences are listed in [THIRD_PARTY.md](THIRD_P
 
 Официальный [OpenCode](https://github.com/anomalyco/opencode) 2, работающий в Termux нативно.
 
-Собирается из исходников OpenCode, все нативные компоненты пересобраны под Bionic, готовый бинарь загружается Android-линкером напрямую — без glibc, proot и прочих слоёв совместимости.
+Собирается из исходников OpenCode, все нативные компоненты собраны под Bionic (iroh — из официального Android-пакета), готовый бинарь загружается Android-линкером напрямую — без glibc, proot и прочих слоёв совместимости.
 
 ### Установка
 
@@ -161,7 +161,7 @@ opencode upgrade   # можно и `opencode update`
 исходники OpenCode vX.Y.Z
         │ Android-патчи (patches/opencode-NNNN-*.patch)
         │ bun install
-        │ подмена нативных компонентов на собранные из исходников (Bionic, статический opencode-pty)
+        │ подмена нативных компонентов на собранные под Bionic, плюс официальный Android-пакет iroh
         ▼
 bun build --compile (glibc-хост, встраивается официальный Android Bun)
         │ проверка запуском в Termux
@@ -227,7 +227,7 @@ curl -fsSL https://raw.githubusercontent.com/cfyz1297/opencode-termux/main/insta
 
 ### 是什么
 
-官方 [OpenCode](https://github.com/anomalyco/opencode) 2 的原生 Termux 版本：所有原生组件按 Bionic 重新编译，由 Android linker 直接加载，无 glibc、无 proot、无兼容层。发布由每日定时 CI 跟随上游，包含 ELF 审计、FFFF / watcher / PTY 冒烟测试与真实 TUI 启动验收。
+官方 [OpenCode](https://github.com/anomalyco/opencode) 2 的原生 Termux 版本：原生组件按 Bionic 重新编译（iroh 用上游的 Android 预编译包），由 Android linker 直接加载，无 glibc、无 proot、无兼容层。发布由每日定时 CI 跟随上游，包含 ELF 审计、OpenTUI 与 iroh 的加载检查、FFF / watcher / PTY 冒烟测试与真实 TUI 启动验收。
 
 ### 移动客户端
 

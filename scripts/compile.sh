@@ -78,6 +78,7 @@ python3 "$ROOT/tools/swap_native_assets.py" "$SRC" --versions "$NATIVES" \
   --fff "$NATIVE/fff/libfff_c.so" \
   --rust-pty "$NATIVE/bun-pty/librust_pty_arm64.so" \
   --opencode-pty "$NATIVE/opencode-pty/opencode-pty" \
+  --iroh "$NATIVE/iroh/libiroh.node" \
   --report "$WORK/swap.json"
 echo "::endgroup::"
 
@@ -92,9 +93,15 @@ echo "::endgroup::"
 CANDIDATE="$DIST/.opencode.new"
 install -m 755 "$SRC/packages/cli/dist/cli-linux-arm64/bin/opencode" "$CANDIDATE"
 python3 "$ROOT/tools/extract_graph.py" "$CANDIDATE" "$WORK/opencode.graph" > "$WORK/extract.json"
+IROH_SHA="$(python3 - "$WORK/swap.json" <<'PY'
+import json, sys
+assets = json.load(open(sys.argv[1]))["assets"]
+print(next(a["sha256"] for a in assets if a["file"] == "iroh.linux-arm64-gnu.node"))
+PY
+)"
 python3 "$ROOT/tools/audit_native_assets.py" "$WORK/opencode.graph" \
-  --report "$WORK/native-assets.json" --require-bionic >/dev/null || {
-    echo "compile: a native asset in the binary is not Bionic; inspect $WORK/native-assets.json" >&2
+  --report "$WORK/native-assets.json" --require-bionic --require-asset "$IROH_SHA" >/dev/null || {
+    echo "compile: the native asset audit failed (glibc asset, or the iroh addon is not embedded); inspect $WORK/native-assets.json" >&2
     exit 1
   }
 

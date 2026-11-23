@@ -37,6 +37,7 @@ def source_archive(top, files):
 
 WATCHER = b"watcher tarball"
 ADDON = b"node-addon-api tarball"
+IROH = b"iroh android tarball"
 SHASUMS = b"""aaaa  bun-linux-aarch64-android.zip
 bbbb  bun-linux-aarch64.zip
 cccc  bun-darwin-aarch64.zip
@@ -55,6 +56,8 @@ def lock_text(**overrides):
         "@ff-labs/fff-bun": ["@ff-labs/fff-bun@0.10.5", "", {}, "sha512-x"],
         "bun-pty": ["bun-pty@0.4.11", "", {}, "sha512-x"],
         "@opencode/pty-linux-arm64-gnu": ["@opencode/pty-linux-arm64-gnu@0.4.0", "", {}, "sha512-x"],
+        "@number0/iroh-linux-arm64-gnu": ["@number0/iroh-linux-arm64-gnu@1.2.0", "", {}, "sha512-x"],
+        "@number0/iroh-android-arm64": ["@number0/iroh-android-arm64@1.2.0", "", {}, sha512(IROH)],
         "unrelated": ["unrelated@1.0.0", "", {"description": "a,] b"}, "sha512-x"],
     }
     packages.update(overrides)
@@ -87,6 +90,7 @@ class FakeNetwork:
             "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/SHASUMS256.txt": SHASUMS,
             "https://registry.npmjs.org/@parcel/watcher/-/watcher-2.5.1.tgz": WATCHER,
             "https://registry.npmjs.org/node-addon-api/-/node-addon-api-7.1.1.tgz": ADDON,
+            "https://registry.npmjs.org/@number0/iroh-android-arm64/-/iroh-android-arm64-1.2.0.tgz": IROH,
         }
         self.files.update(files or {})
         self.tags = {
@@ -124,7 +128,14 @@ class ResolveTests(unittest.TestCase):
         doc = self.resolve()
         self.assertEqual({k: doc[k]["version"] for k in doc}, {
             "base_bun": "1.4.4", "host_bun": "1.4.4", "opentui": "0.8.0", "watcher": "2.5.1",
-            "fff": "0.10.5", "rust_pty": "0.4.11", "opencode_pty": "0.4.0"})
+            "fff": "0.10.5", "rust_pty": "0.4.11", "opencode_pty": "0.4.0", "iroh": "1.2.0"})
+
+    def test_iroh_replacement_comes_from_the_android_package(self):
+        doc = self.resolve()
+        # The glibc package is only what bun install puts in the tree; the Bionic
+        # addon is the android-arm64 build of the same version.
+        self.assertIn("iroh-android-arm64", doc["iroh"]["source_url"])
+        self.assertEqual(doc["iroh"]["version"], "1.2.0")
 
     def test_github_sources_are_fetched_by_commit(self):
         net = FakeNetwork()

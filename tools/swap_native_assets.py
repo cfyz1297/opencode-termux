@@ -36,6 +36,9 @@ ASSETS = [
     ("rust_pty", "bun-pty", "rust-pty/target/release/librust_pty_arm64_musl.so"),
     # A static executable OpenCode starts, see scripts/build-opencode-pty.sh.
     ("opencode_pty", "@opencode/pty-linux-arm64-gnu", "bin/opencode-pty"),
+    # The machine link's Iroh binding: @number0/iroh-android-arm64 is the same
+    # addon built against Bionic, fetched by scripts/fetch-iroh.sh.
+    ("iroh", "@number0/iroh-linux-arm64-gnu", "iroh.linux-arm64-gnu.node"),
 ]
 # (natives.json key, npm package, patch file under patches/)
 PATCHES = [

@@ -14,13 +14,14 @@ ubuntu-24.04-arm GitHub runner
 │   ├── build watcher, FFF and bun-pty for Bionic, with their smoke tests
 │   └── export the Android sysroot to the workspace
 ├── runner (glibc): make fetch-source && make compile
-│   ├── OpenTUI with the Zig it requires (0.17) against that sysroot
-│   ├── opencode-pty as a static musl executable with upstream's Zig (0.16), as upstream builds it
+│   ├── OpenTUI with the Zig it requires against that sysroot
+│   ├── opencode-pty as a static musl executable with upstream's Zig, as upstream builds it
+│   ├── the iroh Android addon from npm, hash-checked and Bionic-checked (fetch-iroh)
 │   ├── OpenCode source of the tag's commit + patches/opencode-NNNN-*.patch
 │   ├── bun install, the native assets swapped into node_modules
 │   └── bun build --compile, embedded into the pinned Android Bun
 └── termux-docker (pinned): bionic-build.sh verify
-    ├── --version, OpenTUI load, FFF search in a git repo through `opencode serve`
+    ├── --version, OpenTUI load, iroh load, FFF search in a git repo through `opencode serve`
     ├── an opencode-pty session and the real OpenCode TUI smoke test
     └── package
 ```
@@ -58,6 +59,10 @@ the Bun base, NDK generation or native ABI patches.
 | Push to `main` | Full Bionic build and tests of the latest OpenCode; published only if that version has no release yet |
 | Daily (03:17 and 15:17 UTC) | Checks the official latest release; a version without a release is built, tested and published |
 | `workflow_dispatch` | Builds the given version; `recut=true` re-releases an already released version as `vX.Y.Z-rN` |
+
+The given version must be one that already depends on iroh (OpenCode 2.4+): earlier
+releases have no such package in `bun.lock`, so `resolve-natives` stops with
+"@number0/iroh-linux-arm64-gnu is not in bun.lock".
 
 Add `[skip ci]` to a commit message to skip the push build, then re-release
 with `gh workflow run build.yml -f version=latest -f recut=true` if needed.

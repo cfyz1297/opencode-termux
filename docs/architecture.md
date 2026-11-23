@@ -11,7 +11,7 @@
 OpenCode vX.Y.Z（tag 对应的提交）
    │ patches/opencode-NNNN-*.patch（fuzz 0）
    │ bun install
-   │ tools/swap_native_assets.py：从源码编译的原生组件替换 node_modules 里的 glibc 版
+   │ tools/swap_native_assets.py：换成 Bionic 版原生组件（iroh 用上游的 Android 预编译包）
    │ bun build --compile --target bun-linux-arm64，executablePath = Android Bun
    ▼
 dist/opencode = 官方 bun-linux-aarch64-android + OpenCode bundle
@@ -45,8 +45,10 @@ OpenCode 的补丁按 fuzz 0 应用；上游改了相关代码时构建直接失
 ## 原生组件
 
 `bun install` 在 glibc 主机上装的是 linux-arm64 的平台包。`swap_native_assets.py` 在编译前
-把这些文件换成从源码编译的版本：前五个是 Termux 里编译的 Bionic 库，opencode-pty 是
-OpenCode 启动的独立程序，按上游 musl 版的方式编成静态可执行文件，不经过任何动态链接器：
+把这些文件换成 Bionic 版本：OpenTUI 在 glibc 主机上用 Zig 交叉编译，watcher、FFF、bun-pty
+在 Termux 里编译，opencode-pty 是 OpenCode 启动的独立程序，按上游 musl 版的方式编成静态
+可执行文件，不经过任何动态链接器，iroh 是上游发布的 android-arm64 预编译包
+（`scripts/fetch-iroh.sh`，只下载不编译）：
 
 | npm 包 | 文件 |
 | --- | --- |
@@ -56,25 +58,29 @@ OpenCode 启动的独立程序，按上游 musl 版的方式编成静态可执�
 | `bun-pty` | `rust-pty/target/release/librust_pty_arm64.so` |
 | `bun-pty` | `rust-pty/target/release/librust_pty_arm64_musl.so`（同一个 Bionic 库） |
 | `@opencode/pty-linux-arm64-gnu` | `bin/opencode-pty` |
+| `@number0/iroh-linux-arm64-gnu` | `iroh.linux-arm64-gnu.node` |
 
-装上的版本必须等于原生组件实际编译的版本（`work/natives.json`）。这些版本由
+装上的版本必须等于原生组件实际的版本（`work/natives.json`）。这些版本由
 `tools/resolve_natives.py` 从同一份 `bun.lock` 读出，所以正常情况下必然一致；不一致说明解析
 或安装出了问题，构建失败。替换是删掉再写新文件，因为 Bun 把 `node_modules` 硬链接到全局缓存。
 
-编译后仍从产物里提取模块图，用 `audit_native_assets.py --require-bionic` 审计：任何一个
-内嵌 ELF 带 glibc 依赖都不会进入发布（静态的 opencode-pty 没有解释器和 `DT_NEEDED`）。
+编译后仍从产物里提取模块图，用 `audit_native_assets.py --require-bionic
+--require-asset <iroh sha256>` 审计：任何一个内嵌 ELF 带 glibc 依赖都不会进入发布（静态的
+opencode-pty 没有解释器和 `DT_NEEDED`），并且 iroh 的字节必须真的在产物里——换掉 swap 或
+upstream 改了打包方式时，`--require-asset` 会让构建失败而不是悄悄少掉 machine link。
 
 ## 发布门禁
 
 正式产物必须同时满足：
 
 1. 补丁全部按 fuzz 0 应用，原生组件版本与 OpenCode 的 `bun.lock` 一致（`work/natives.json`）；
-2. 产物模块图里的内嵌 ELF 都是 AArch64，且没有 glibc 依赖；
+2. 产物模块图里的内嵌 ELF 都是 AArch64，没有 glibc 依赖，且 iroh 的 sha256 就在其中（`--require-asset`）；
 3. `--version` 与源码 tag 一致；
 4. `opencode serve` 的文件搜索接口在 git 仓库里（OpenCode 只在仓库里用 FFF）经由打过补丁的 FFF wrapper 找到文件，服务端搜索后和退出时都不崩溃（`tools/serve_smoke.py`）；
 5. TUI 在隔离 HOME 中渲染真实帧；
 6. opencode-pty 在 Termux 里跑通一个真实 shell 会话；
-7. 原生组件各自的 FFF / watcher / PTY 冒烟通过（在组件编译时）。
+7. 原生组件各自的 FFF / watcher / PTY 冒烟通过（在组件编译时），opentui 和 iroh 由 verify 用 Android Bun 实际加载一次。
 
 1、2 在编译主机上检查（`scripts/compile.sh`），3 到 6 在 termux-docker 里运行
-（`scripts/verify.sh`）。只有全部通过，候选文件才会成为 `dist/opencode`。
+（`scripts/verify.sh`），7 两边各做一半：组件冒烟随组件构建（Termux 阶段），opentui 和 iroh 的
+加载检查在容器里。只有全部通过，候选文件才会成为 `dist/opencode`。

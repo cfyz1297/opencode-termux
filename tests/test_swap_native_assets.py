@@ -20,6 +20,7 @@ VERSIONS = {
     "fff": {"version": "0.9.4"},
     "rust_pty": {"version": "0.4.8"},
     "opencode_pty": {"version": "0.2.0"},
+    "iroh": {"version": "1.2.0"},
 }
 # Android, and so Termux's Python, has no hard links.
 HARDLINKS = hasattr(os, "link")
@@ -77,6 +78,9 @@ class SwapTests(unittest.TestCase):
                                     "@opencode/pty-linux-arm64-gnu", "0.2.0",
                                     {"bin/opencode-pty": "glibc opencode-pty"})
         (self.opencode_pty / "bin" / "opencode-pty").chmod(0o755)
+        self.iroh = package(modules / "@number0" / "iroh-linux-arm64-gnu",
+                            "@number0/iroh-linux-arm64-gnu", "1.2.0",
+                            {"iroh.linux-arm64-gnu.node": "glibc iroh"})
 
         self.patches = base / "patches"
         self.patches.mkdir()
@@ -110,7 +114,8 @@ class SwapTests(unittest.TestCase):
         opencode_pty = self.opencode_pty / "bin" / "opencode-pty"
         self.assertEqual(opencode_pty.read_text(), "bionic opencode_pty")
         self.assertTrue(os.access(opencode_pty, os.X_OK), "the replaced executable must stay executable")
-        self.assertEqual(len(report["assets"]), 6)
+        self.assertEqual((self.iroh / "iroh.linux-arm64-gnu.node").read_text(), "bionic iroh")
+        self.assertEqual(len(report["assets"]), 7)
         self.assertEqual(report["patches"][0]["package"], "@ff-labs/fff-bun@0.9.4")
 
     def test_symlinked_and_stored_copies_count_once(self):

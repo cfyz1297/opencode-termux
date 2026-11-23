@@ -3,10 +3,10 @@ VERSION ?= latest
 
 # glibc host: fetch-source, resolve-natives (first: everything below reads work/natives.json)
 # Termux:     fetch-bun, build-native (exports the Android sysroot), verify
-# glibc host: fetch-host-bun, build-opentui, build-opencode-pty, compile
+# glibc host: fetch-host-bun, build-opentui, build-opencode-pty, fetch-iroh, compile
 # (scripts/compile.sh explains why compiling cannot happen inside Termux.)
 
-.PHONY: fetch-source resolve-natives fetch-bun fetch-host-bun build-watcher build-opentui build-fff build-rust-pty export-android-sysroot build-native build-opencode-pty compile verify smoke audit test clean
+.PHONY: fetch-source resolve-natives fetch-bun fetch-host-bun build-watcher build-opentui build-fff build-rust-pty fetch-iroh export-android-sysroot build-native build-opencode-pty compile verify smoke audit test clean
 
 fetch-source:
 	bash scripts/fetch-source.sh $(VERSION)
@@ -33,6 +33,9 @@ build-fff: fetch-bun
 build-rust-pty: fetch-bun
 	bash scripts/build-rust-pty.sh
 
+fetch-iroh:
+	bash scripts/fetch-iroh.sh
+
 export-android-sysroot:
 	bash scripts/export-android-sysroot.sh
 
@@ -41,7 +44,9 @@ build-native: build-watcher build-fff build-rust-pty export-android-sysroot
 build-opencode-pty:
 	bash scripts/build-opencode-pty.sh
 
-compile: fetch-host-bun build-opentui build-opencode-pty
+# fetch-iroh is a download, not a Termux build, so it stays out of the cached
+# build-native phase: the compile step fetches the addon on every run.
+compile: fetch-host-bun build-opentui build-opencode-pty fetch-iroh
 	SKIP_RUN=1 bash scripts/fetch-bun.sh
 	bash scripts/compile.sh
 
@@ -53,7 +58,7 @@ smoke:
 
 audit:
 	python3 tools/extract_graph.py dist/opencode work/audit.graph > work/audit-extract.json
-	python3 tools/audit_native_assets.py work/audit.graph --report work/audit-native.json
+	python3 tools/audit_native_assets.py work/audit.graph --report work/audit-native.json --require-bionic
 
 test:
 	python3 -m unittest discover -s tests -v

@@ -41,6 +41,8 @@ REPORTED="$("$CANDIDATE" --version)"
 # OpenTUI is built on the glibc host; this is where Bionic first loads it.
 "$ROOT/work/bun-android/bun" "$ROOT/tools/opentui_smoke.ts" "$ROOT/work/native/opentui/libopentui.so" \
   > "$WORK/opentui-smoke.log" 2>&1 || fail "libopentui.so does not load" "$WORK/opentui-smoke.log"
+"$ROOT/work/bun-android/bun" "$ROOT/tools/iroh_smoke.ts" "$ROOT/work/native/iroh/libiroh.node" \
+  > "$WORK/iroh-smoke.log" 2>&1 || fail "the iroh addon does not load" "$WORK/iroh-smoke.log"
 python3 "$ROOT/tools/serve_smoke.py" "$CANDIDATE" 120 > "$WORK/fff-smoke.log" 2>&1 ||
   fail "file search through the server failed" "$WORK/fff-smoke.log"
 python3 "$ROOT/tools/tui_smoke.py" "$CANDIDATE" "$SMOKE_SECONDS" > "$WORK/tui-smoke.log" 2>&1 ||
@@ -58,7 +60,7 @@ grep -q termux-smoke "$WORK/pty-smoke.log" && grep -q checkpoint "$WORK/pty-smok
 python3 - "$DIST/compile.json" "$DIST/build-manifest.json.new" <<'PY'
 import json, sys
 doc = json.load(open(sys.argv[1]))
-doc["smoke"] = {"version": "pass", "opentui": "pass", "file_search": "pass", "pty": "pass"}
+doc["smoke"] = {"version": "pass", "opentui": "pass", "iroh": "pass", "file_search": "pass", "pty": "pass"}
 doc["tui_smoke"] = "pass"
 doc["structurally_verified"] = doc["native_assets"].get("result") == "pass"
 doc["release_eligible"] = doc["structurally_verified"]

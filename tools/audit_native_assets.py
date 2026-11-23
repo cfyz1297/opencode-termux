@@ -53,6 +53,8 @@ def main() -> int:
     parser.add_argument("graph")
     parser.add_argument("--report")
     parser.add_argument("--require-bionic", action="store_true")
+    parser.add_argument("--require-asset", action="append", default=[], metavar="SHA256",
+                        help="fail when the binary does not embed the asset with this digest")
     args = parser.parse_args()
     try:
         report = audit(Graph.from_path(args.graph))
@@ -77,8 +79,15 @@ def main() -> int:
                 f"{asset['module_name']}: dependencies are not bundled or Android-system "
                 + ", ".join(asset["unbundled_dependencies"])
             )
-    report["strict"] = args.require_bionic
-    report["result"] = "fail" if args.require_bionic and violations else (
+    # A missing swap is silent: the binary keeps working without the feature,
+    # so the digest the swap wrote must be inside it.
+    embedded = {asset.get("sha256") for asset in report["elf_assets"]}
+    for digest in args.require_asset:
+        if digest not in embedded:
+            violations.append(f"no embedded asset hashes to {digest}")
+    report["required_assets"] = args.require_asset
+    report["strict"] = strict = args.require_bionic or bool(args.require_asset)
+    report["result"] = "fail" if strict and violations else (
         "warn" if violations else "pass"
     )
     report["policy_violations"] = violations
@@ -87,7 +96,7 @@ def main() -> int:
         with open(args.report, "w", encoding="utf-8") as stream:
             stream.write(encoded)
     print(encoded, end="")
-    return 1 if args.require_bionic and violations else 0
+    return 1 if strict and violations else 0
 
 
 if __name__ == "__main__":
