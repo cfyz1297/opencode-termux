@@ -207,10 +207,11 @@ class ResolveTests(unittest.TestCase):
         with self.assertRaisesRegex(resolver.ResolveError, f"OpenTUI 0.8.0 needs Zig {newer}"):
             self.resolve(net=net)
 
-    def test_opentui_on_an_older_zig_resolves(self):
+    def test_opentui_on_another_zig_version_fails_early(self):
         net = FakeNetwork()
         net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon("0.1.0")})
-        self.assertEqual(self.resolve(net=net)["opentui"]["version"], "0.8.0")
+        with self.assertRaisesRegex(resolver.ResolveError, "OpenTUI 0.8.0 needs Zig 0.1.0"):
+            self.resolve(net=net)
 
     def test_opencode_pty_on_another_zig_minor_fails_early(self):
         pinned = VERSIONS["opencode_pty"]["zig"]

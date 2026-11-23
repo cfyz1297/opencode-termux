@@ -179,7 +179,7 @@ def archive_text(archive: bytes, path: str) -> str | None:
 def zig_needed(key: str, archive: bytes) -> str | None:
     """The Zig a component's source asks for, where it says so."""
     if key == "opentui":
-        # The oldest Zig OpenTUI's build accepts.
+        # The only Zig OpenTUI's build accepts.
         text = archive_text(archive, "packages/native/build.zig.zon")
         pattern = r'\.minimum_zig_version\s*=\s*"([^"]+)"'
     elif key == "opencode_pty":
@@ -209,10 +209,12 @@ def check_zig(versions: dict, key: str, version: str, archive: bytes) -> None:
         return
     label = {"opentui": "OpenTUI", "opencode_pty": "opencode-pty"}[key]
     needed_v, pinned_v = version_tuple(needed), version_tuple(pinned)
-    fits = needed_v <= pinned_v
-    if key == "opencode_pty":
+    if key == "opentui":
+        # checkZigVersion compares major, minor and patch for equality.
+        fits = needed_v == pinned_v
+    else:
         # Ghostty's requireZig: the same minor version, at least that patch.
-        fits = fits and needed_v[:2] == pinned_v[:2]
+        fits = needed_v <= pinned_v and needed_v[:2] == pinned_v[:2]
     if not fits:
         raise ResolveError(f"{label} {version} needs Zig {needed}; versions.json gives it {pinned}")
 

@@ -28,8 +28,9 @@ bun-pty 0.4.10 起在 Linux 上同时内嵌 musl 版，只在 ld-musl 下加载�
   Release 的 `SHASUMS256.txt`。
 - Zig 是我们选的工具链，不是 OpenCode 装的依赖：`versions.json` 的 `zig` 按版本登记
   归档地址和 SHA-256，用 Zig 编译的组件（OpenTUI、opencode-pty）在自己的配方里写明用哪个，
-  两者可以不同。解析时检查它们是否满足源码的要求：OpenTUI 的 `build.zig.zon` 里的
-  `minimum_zig_version` 不能比它用的新；opencode-pty 要和上游 `release-process-daemon.yml`
+  两者可以不同。解析时检查它们是否满足源码的要求：OpenTUI 只接受 `build.zig.zon`
+  里 `minimum_zig_version` 那个确切版本（`build.zig` 按 major/minor/patch 全等比较）；
+  opencode-pty 要和上游 `release-process-daemon.yml`
   的 `ZIG_VERSION` 同一个次版本，patch 不低于它（它编译的 Ghostty 只接受这个次版本）。
   不满足时构建在解析这一步就失败。
 
