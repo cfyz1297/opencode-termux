@@ -58,6 +58,55 @@ Bun 解析这个包时走 `exports` 的 `bun` 条件，打包的是 `src/ffi.ts`
 `tools/serve_smoke.py` 在 git 仓库里经 `opencode serve` 再测一次打包后的 wrapper，非
 仓库目录 OpenCode 用 ripgrep，测不到 FFF。
 
+## free() 杀掉带截断标签的指针（TUI 出现后立刻 Aborted）
+
+和上面同一类根源，但炸在释放而不是转换。链条是这样的：OpenTUI 把 context 和
+Yoga 句柄按 `u64` 读出来，`toPointer`/`toSafeNumberPointer` 转成 Number 交给
+`bun:ffi`（bun:ffi 只收数字指针）；本仓库的
+`scripts/patch-opentui-pointer.mjs` 把高位标签掩掉
+（`pointer & 0x00ffffffffffffffn`，否则 TBI 下超出 `MAX_SAFE_INTEGER` 会抛错）；
+这个去标签后的数字又原样回到原生所有权手里，`ot_context_destroy` / `yogaNodeFree`
+对它的 `free()` 就撞上 bionic 的 `MaybeUntagAndCheckPointer`：
+
+```
+Pointer tag for 0x7bdd4b6070 was truncated, see 'https://source.android.com/devices/tech/debug/tagged-pointers'.
+Aborted
+```
+
+所以 TUI 能画出来，几秒后才死（打开 `Ctrl+P` 会创建并销毁 renderable，最快复现）。
+注意这**不是**「OpenTUI 的 bug」：没有 pointer 补丁时 `toSafeNumberPointer` 会抛
+`POINTER_UNSAFE`，是全进程 abort 换成了一个 JS 错误——两个补丁必须一起看。
+
+为什么在设备上必现、在 CI 里看不到：
+
+- bionic 的默认是 `M_HEAP_TAGGING_LEVEL_NONE`（`libc/bionic/heap_tagging.cpp`），
+  真正打开它的是 init/zygote，Android 14（targetSdk 34）起对应用默认开启。
+  进程从那个父进程继承了 `initial_heap_tagging_level`，所以设备上的 OpenCode
+  一开始就带标签。
+- `termux-docker` 里**也是 Bionic**，但没有 init/zygote，级别停在默认的 `NONE`，
+  所以 verify 阶段碰不到这条路径。
+- 同一台设备上 Bun 1.2.13 的 `malloc` 返回 `0x7ef1e5f580`（它自己关了），
+  而 `bun-linux-aarch64-android` 1.4.4 返回 `0xb400007c763f3940`——学会了不关。
+
+因此 `patches/opencode-0004-heap-tagging-off.patch` 把这一步要回来：在
+`packages/cli/src/index.ts` 导入之后调用
+`mallopt(M_BIONIC_SET_HEAP_TAGGING_LEVEL, M_HEAP_TAGGING_LEVEL_NONE)`。这是 bionic
+官方 opt-out，且对已经带标签的指针安全：`tests/heap_tagging_level_test.cpp` 专门
+验证「切换后释放被抹掉标签的指针」是正常的。它对 `opencode serve` 同样生效。
+
+两处容易写错的细节：
+
+- `M_BIONIC_SET_HEAP_TAGGING_LEVEL` 是 **-204**（不是 -4），`M_HEAP_TAGGING_LEVEL_NONE` 是 0。
+- **这个调用不能加 `process.platform` 判断。** `bun build --compile` 按**构建机**把该常量
+  写死，而构建走的是宿主 glibc Bun（`scripts/compile.sh`），打包进去的永远是 `"linux"`。
+  任何平台判断在这里都是编译期 `false`，`minify` 会把整块连同 `bun:ffi` 一起删掉，
+  修复会从发布物里静默消失。所以调用无条件执行，靠 `try/catch` 吸收
+  `dlopen("libc.so")` 抛错的非 Bionic libc。
+
+代价：`M_HEAP_TAGGING_LEVEL_NONE` 不可逆，并且会顺带关掉 Scudo 的 MTE 检查（如果进程
+本来有）。这是有意接受的——另一条路是改 OpenTUI 的指针路线（保留 BigInt 指针），
+在设备上未经验证。写在这里，而不是让它变成后来的猜测。
+
 ## OpenTUI pointer boundary
 
 Android 17 тегирует указатели кучи в старшем байте (TBI): `malloc(64)` отдаёт

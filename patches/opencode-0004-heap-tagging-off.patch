@@ -1,0 +1,38 @@
+diff --git a/packages/cli/src/index.ts b/packages/cli/src/index.ts
+index e5a47e6..60a0915 100755
+--- a/packages/cli/src/index.ts
++++ b/packages/cli/src/index.ts
+@@ -18,6 +18,33 @@ import { EffectFlock } from "@opencode/util/effect-flock"
+ import { Heap } from "./heap"
+ import { CpuProfile } from "./cpu-profile"
+ import { ShutdownDeadline } from "./shutdown-deadline"
++import { dlopen, FFIType } from "bun:ffi"
++
++// opencode-termux: Bionic tags heap pointers in the top byte. OpenTUI reads
++// contexts and Yoga handles as u64 and hands them to bun:ffi as Numbers, and
++// scripts/patch-opentui-pointer.mjs drops the tag to keep them inside
++// Number.MAX_SAFE_INTEGER. Those untagged values go back to native ownership
++// (ot_context_destroy, yogaNodeFree), and free() aborts the process with
++// "Pointer tag for 0x... was truncated". M_HEAP_TAGGING_LEVEL_NONE is Bionic's
++// supported opt-out, and Bionic still frees a pointer whose tag is already gone
++// (libc's heap_tagging_level_test covers exactly that), so turning it off here
++// is safe even though the process has been running. The trade-off: this also
++// turns off MTE checks where the process has them.
++//
++// Deliberately not guarded by process.platform: `bun build --compile` bakes that
++// constant from the *build* host, which is glibc Linux (scripts/compile.sh), so
++// any platform test here is a compile-time false and the fix silently vanishes.
++// The try/catch absorbs non-Bionic libcs, where dlopen("libc.so") throws or the
++// option is unknown.
++try {
++  const { symbols } = dlopen("libc.so", {
++    mallopt: { args: [FFIType.i32, FFIType.i32], returns: FFIType.i32 },
++  })
++  // M_BIONIC_SET_HEAP_TAGGING_LEVEL, M_HEAP_TAGGING_LEVEL_NONE
++  symbols.mallopt(-204, 0)
++} catch {
++  // Not Bionic, or a libc without scudo: nothing to disable.
++}
+ 
+ // Keep requests to the local service off any proxy. Bun reads lowercase `no_proxy` alone whenever it is set, so both
+ // spellings get the same merged list.

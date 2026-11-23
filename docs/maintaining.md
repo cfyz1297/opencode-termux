@@ -18,6 +18,7 @@ make test                        # 回归测试，几秒，不联网
 | `resolve_natives: expected one version` | 同一组件装了两个版本，或几个包的版本对不上 | 看 `bun.lock`，通常是上游升级到一半；等上游修好，或在 `swap_native_assets.py` 里处理 |
 | `OpenTUI X needs Zig Y` / `opencode-pty X needs Zig Y` | 组件要求另一个 Zig | 在 `versions.json` 的 `zig` 里加上这个版本（URL 和 SHA-256 见 ziglang.org 的 `download/index.json`），再把该组件的 `zig` 改成它。两者各用各的：OpenTUI 只接受它 `build.zig` 列出的确切版本，opencode-pty 内的 Ghostty 只接受上游发布时用的那个次版本（`release-process-daemon.yml` 的 `ZIG_VERSION`）。不再被引用的 Zig 可以删掉 |
 | `versions.json gives X Zig Y but has no such entry` | 组件指向的 Zig 没登记 | 在 `zig` 里加上它，或改回已登记的版本 |
+| `Pointer tag for 0x... was truncated` + `Aborted` 在设备上 | Bionic 给堆指针打标签，而 OpenTUI 的指针路径会把标签抹掉，`free()` 于是中止进程 | 在设备上确认 `patches/opencode-0004-heap-tagging-off.patch` 已应用且不再中止。CI 复现不了：`termux-docker` 虽同样是 Bionic，但没有 init/zygote，层级停在默认的 `NONE`。此补丁里不能加 `process.platform` 判断——该常量由构建机写死 |
 | `no toSafeNumberPointer in .../core` | OpenTUI переименовал или переписал FFI-обёртку указателей | Проверить, как теперь конвертируется указатель из `ot_context_create`, и обновить `scripts/patch-opentui-pointer.mjs`; без этой правки TUI падает на Android с tagged pointers |
 | `opentui-android.patch` / `opencode-pty-termux.patch` / `bun-pty-android.patch` 打不上 | 组件的新版本改了补丁涉及的代码 | 在新版本源码上重做补丁（`work/natives.json` 里有 commit），补丁一律 fuzz 0 |
 | `fff-bun-android.patch does not apply` | FFF 的 Bun wrapper 变了 | 重做补丁，`src/ffi.ts` 和 `dist/index.js` 都要改；手机上可以用 Release 里的 `libfff_c.so` 直接测 wrapper |

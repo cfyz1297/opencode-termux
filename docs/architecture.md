@@ -36,6 +36,7 @@ Bun 照常执行这些已经写死的分支。
 | `opencode-0001-compile-on-android-bun` | `build.ts` 的 `compileExecutable()` 从 `OPENCODE_TERMUX_BUN` 取被嵌入的 Bun |
 | `opencode-0002-update-from-termux-releases` | 更新服务（`services/updater.ts`）：`$PREFIX/bin` 识别为 curl 安装，最新版读本项目 Release 的 `build-manifest.json`，安装脚本换成本项目的 `install.sh`；`upgrade`（别名 `update`）遇到同版本时按二进制哈希判断（`src/termux.ts`） |
 | `opencode-0003-ripgrep-from-termux` | 找不到 `rg` 时不再下载 ripgrep 的官方 glibc 版，提示 `pkg install ripgrep`；`install.sh` 会装上 Termux 打包的 ripgrep |
+| `opencode-0004-heap-tagging-off` | `packages/cli/src/index.ts`: `mallopt(M_BIONIC_SET_HEAP_TAGGING_LEVEL, NONE)`——关掉 bionic 的堆标签，否则 `free()` 会中止带截断标签的指针 |
 | `fff-bun-android` | FFF 的 Bun wrapper 用 `read.u64` 读指针并以 bigint 运算：Android AArch64 的堆指针高字节带 tag，JavaScript number 存不下。Bun 按 `bun` 导出条件打包 `src/ffi.ts`，`dist/index.js` 也一并修补 |
 | `opencode-pty-termux` | opencode-pty 的 socket 目录从 `/tmp`（Android 没有）改到 `$PREFIX/tmp` |
 | `opentui-android`、`bun-pty-android` | 原生组件本身的 Android 构建，见 [native-assets.md](native-assets.md) |
