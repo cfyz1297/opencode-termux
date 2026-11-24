@@ -37,6 +37,8 @@ ASSETS = [
     # A static executable OpenCode starts, see scripts/build-opencode-pty.sh.
     ("opencode_pty", "@opencode/pty-linux-arm64-gnu", "bin/opencode-pty"),
 ]
+# OpenCode versions before the Iroh transport do not install this package.
+IROH_ASSET = ("iroh", "@number0/iroh-linux-arm64-gnu", "iroh.linux-arm64-gnu.node")
 # (natives.json key, npm package, patch file under patches/)
 PATCHES = [
     ("fff", "@ff-labs/fff-bun", "fff-bun-android.patch"),
@@ -132,9 +134,10 @@ def patched_files(patch: Path) -> list[str]:
 
 def swap(root: Path, versions: dict, replacements: dict[str, Path], patches_dir: Path) -> dict:
     report: dict = {"assets": [], "patches": []}
-    for key, name, relative in ASSETS:
-        source = replacements[key]
-        if not source.is_file():
+    assets = [*ASSETS, IROH_ASSET] if "iroh" in versions else ASSETS
+    for key, name, relative in assets:
+        source = replacements.get(key)
+        if source is None or not source.is_file():
             raise SwapError(f"{key}: Bionic asset is missing: {source}")
         for package in pinned(root, name, versions[key]["version"]):
             target = package / relative
@@ -179,11 +182,12 @@ def main() -> int:
     for key in keys:
         parser.add_argument(f"--{key.replace('_', '-')}", type=Path, required=True,
                             help=f"Bionic replacement for the {key} asset")
+    parser.add_argument("--iroh", type=Path, help="Android Iroh binding for versions that include Iroh")
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
 
     versions = json.loads(args.versions.read_text())
-    replacements = {key: getattr(args, key) for key in keys}
+    replacements = {key: getattr(args, key) for key in [*keys, "iroh"]}
     try:
         report = swap(args.source.resolve(), versions, replacements, args.patches)
     except SwapError as error:

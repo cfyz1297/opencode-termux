@@ -79,16 +79,16 @@ index eebdf8b..06207db 100644
  fn buildTarget(
      b: *std.Build,
      zig_target: []const u8,
-@@ -949,6 +996,8 @@ fn buildTarget(
-     const build_step_name = try std.fmt.allocPrint(b.allocator, "build-{s}", .{output_name});
-     const build_step = b.step(build_step_name, try std.fmt.allocPrint(b.allocator, "Build for {s}", .{description}));
-     for (createLibraries(b, target, optimize, build_options, macos_sdk_path)) |lib| {
-+        // opencode-termux: Bun loads the shared library; skip the archive.
-+        if (target.result.abi == .android and lib.linkage.? == .static) continue;
-         const install_dir = b.addInstallArtifact(lib, .{
-             .dest_dir = .{ .override = .{ .custom = install_path } },
-             .h_dir = .{ .override = .{ .custom = install_path } },
-@@ -991,6 +1040,7 @@ fn createLibraries(
+@@ -972,7 +1019,7 @@ fn createLibraries(
+     optimize: std.lang.Optimize,
+     build_options: *std.Build.Step.Options,
+     macos_sdk_path: ?[]const u8,
+-) [2]*std.Build.Step.Compile {
++) []const *std.Build.Step.Compile {
+     const module = b.createModule(.{
+         .root_source_file = b.path(ROOT_SOURCE_FILE),
+         .target = target,
+@@ -991,6 +1038,7 @@ fn createLibraries(
          .linkage = .dynamic,
      });
      if (target.result.os.tag == .linux and optimize != .debug) shared.build_id = .sha1;
@@ -96,6 +96,18 @@ index eebdf8b..06207db 100644
      // Zig's default DLL entry skips the MinGW CRT startup, so CRT state such as
      // the DLL atexit table would stay uninitialized. MinGW's strtod registers
      // there, and both the Zig code and FFmpeg call it, so this applies with or
+@@ -1008,5 +1056,10 @@ fn createLibraries(
+     });
+     shared.installHeader(b.path("include/opentui.h"), "opentui.h");
+     static.installHeader(b.path("include/opentui.h"), "opentui.h");
+-    return .{ shared, static };
++    // Bun loads the shared library. Omit the static archive for Android.
++    const libraries: []const *std.Build.Step.Compile = if (target.result.abi == .android)
++        &.{shared}
++    else
++        &.{ shared, static };
++    return b.allocator.dupe(*std.Build.Step.Compile, libraries) catch @panic("out of memory");
+ }
 diff --git a/packages/native/src/clipboard/host.zig b/packages/native/src/clipboard/host.zig
 index 0669787..7a74d44 100644
 --- a/packages/native/src/clipboard/host.zig

@@ -25,7 +25,7 @@ def release_notes(manifest, tag, commit, predecessor, changelog):
     bun = m.get("base_bun") or {}
     source = m.get("source") or {}
     names = {"opentui": "OpenTUI", "fff": "FFF", "watcher": "watcher", "rust_pty": "bun-pty",
-             "opencode_pty": "opencode-pty"}
+             "opencode_pty": "opencode-pty", "iroh": "Iroh"}
     natives = m.get("natives") or {}
     components = " · ".join(f"{label} {natives[key]['version']}" for key, label in names.items()
                             if key in natives)

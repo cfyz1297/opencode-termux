@@ -41,6 +41,15 @@ REPORTED="$("$CANDIDATE" --version)"
 # OpenTUI is built on the glibc host; this is where Bionic first loads it.
 "$ROOT/work/bun-android/bun" "$ROOT/tools/opentui_smoke.ts" "$ROOT/work/native/opentui/libopentui.so" \
   > "$WORK/opentui-smoke.log" 2>&1 || fail "libopentui.so does not load" "$WORK/opentui-smoke.log"
+if python3 -c 'import json, sys; sys.exit("iroh" not in json.load(open(sys.argv[1]))["natives"])' "$DIST/compile.json"; then
+  IROH_BINDING="$WORK/iroh.android-arm64.node" timeout 30 "$ROOT/work/bun-android/bun" -e '
+    const builder = require(process.env.IROH_BINDING).Endpoint.builder()
+    builder.applyMinimal()
+    builder.bindAddr("127.0.0.1:0")
+    const endpoint = await builder.bind()
+    await endpoint.close()
+  ' > "$WORK/iroh-smoke.log" 2>&1 || fail "Iroh could not open a local QUIC endpoint" "$WORK/iroh-smoke.log"
+fi
 python3 "$ROOT/tools/serve_smoke.py" "$CANDIDATE" 120 > "$WORK/fff-smoke.log" 2>&1 ||
   fail "file search through the server failed" "$WORK/fff-smoke.log"
 python3 "$ROOT/tools/tui_smoke.py" "$CANDIDATE" "$SMOKE_SECONDS" > "$WORK/tui-smoke.log" 2>&1 ||
@@ -59,6 +68,8 @@ python3 - "$DIST/compile.json" "$DIST/build-manifest.json.new" <<'PY'
 import json, sys
 doc = json.load(open(sys.argv[1]))
 doc["smoke"] = {"version": "pass", "opentui": "pass", "file_search": "pass", "pty": "pass"}
+if "iroh" in doc["natives"]:
+    doc["smoke"]["iroh"] = "pass"
 doc["tui_smoke"] = "pass"
 doc["structurally_verified"] = doc["native_assets"].get("result") == "pass"
 doc["release_eligible"] = doc["structurally_verified"]

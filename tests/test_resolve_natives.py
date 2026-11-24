@@ -79,7 +79,7 @@ def newer_minor(version):
 class FakeNetwork:
     def __init__(self, files=None, tags=None):
         self.opentui = source_archive("opentui-abc", {
-            "packages/native/build.zig.zon": zig_zon(VERSIONS["opentui"]["zig"])})
+            "packages/native/build.zig.zon": zig_zon("0.16.0")})
         self.opencode = source_archive("opencode-abc", {
             ".github/workflows/release-process-daemon.yml": process_daemon_workflow(VERSIONS["opencode_pty"]["zig"]),
             "packages/process-daemon/Cargo.toml": "[package]\n"})
@@ -150,6 +150,23 @@ class ResolveTests(unittest.TestCase):
         with self.assertRaisesRegex(resolver.ResolveError, "integrity"):
             self.resolve(net=tampered)
 
+    def test_iroh_uses_the_matching_android_package_from_the_lock(self):
+        host = "@number0/iroh-linux-arm64-gnu"
+        android = "@number0/iroh-android-arm64"
+        url = f"https://registry.npmjs.org/{android}/-/iroh-android-arm64-1.2.0.tgz"
+        data = b"Android Iroh tarball"
+        packages = {host: [f"{host}@1.2.0", "", {}, "sha512-x"],
+                    android: [f"{android}@1.2.0", "", {}, sha512(data)]}
+        net = FakeNetwork({url: data})
+        iroh = self.resolve(lock_text(**packages), net=net)["iroh"]
+        self.assertEqual(iroh, {"version": "1.2.0", "packages": [host], "npm": android,
+                                "source_url": url, "source_sha256": hashlib.sha256(data).hexdigest()})
+        with self.assertRaisesRegex(resolver.ResolveError, "integrity"):
+            self.resolve(lock_text(**packages), net=FakeNetwork({url: b"tampered"}))
+        packages[android][0] = f"{android}@1.2.1"
+        with self.assertRaisesRegex(resolver.ResolveError, "expected one version"):
+            self.resolve(lock_text(**packages), net=net)
+
     def test_watcher_gets_its_nested_node_addon_api(self):
         nested = ["node-addon-api@8.0.0", "", {}, sha512(b"eight")]
         net = FakeNetwork({"https://registry.npmjs.org/node-addon-api/-/node-addon-api-8.0.0.tgz": b"eight"})
@@ -196,21 +213,23 @@ class ResolveTests(unittest.TestCase):
     def test_zig_built_components_say_which_zig(self):
         doc = self.resolve()
         # build-opentui.sh and build-opencode-pty.sh look this up in versions.json's "zig".
-        self.assertEqual(doc["opentui"]["zig"], VERSIONS["opentui"]["zig"])
+        self.assertEqual(doc["opentui"]["zig"], "0.16.0")
         self.assertEqual(doc["opencode_pty"]["zig"], VERSIONS["opencode_pty"]["zig"])
         self.assertNotIn("zig", doc["fff"])
 
-    def test_opentui_needing_a_newer_zig_fails_early(self):
-        newer = newer_minor(VERSIONS["opentui"]["zig"])
+    def test_opentui_needing_an_unlisted_zig_fails_early(self):
+        newer = "0.17.2"
         net = FakeNetwork()
         net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon(newer)})
         with self.assertRaisesRegex(resolver.ResolveError, f"OpenTUI 0.8.0 needs Zig {newer}"):
             self.resolve(net=net)
 
-    def test_opentui_on_an_older_zig_resolves(self):
+    def test_opentui_uses_the_exact_zig_patch_from_source(self):
         net = FakeNetwork()
-        net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon("0.1.0")})
-        self.assertEqual(self.resolve(net=net)["opentui"]["version"], "0.8.0")
+        for zig in ("0.17.0", "0.17.1"):
+            net.opentui = source_archive("opentui-abc", {"packages/native/build.zig.zon": zig_zon(zig)})
+            with self.subTest(zig=zig):
+                self.assertEqual(self.resolve(net=net)["opentui"]["zig"], zig)
 
     def test_opencode_pty_on_another_zig_minor_fails_early(self):
         pinned = VERSIONS["opencode_pty"]["zig"]
@@ -239,8 +258,8 @@ class ResolveTests(unittest.TestCase):
         self.assertEqual(self.resolve(net=net)["opencode_pty"]["version"], "0.4.0")
 
     def test_a_zig_versions_json_does_not_list_fails(self):
-        versions = dict(VERSIONS, opentui=dict(VERSIONS["opentui"], zig="9.9.9"))
-        with self.assertRaisesRegex(resolver.ResolveError, "gives opentui Zig 9.9.9 but has no such entry"):
+        versions = dict(VERSIONS, opencode_pty=dict(VERSIONS["opencode_pty"], zig="9.9.9"))
+        with self.assertRaisesRegex(resolver.ResolveError, "gives opencode_pty Zig 9.9.9 but has no such entry"):
             self.resolve(versions=versions)
 
 
@@ -265,9 +284,8 @@ class RecipeTests(unittest.TestCase):
     def test_bun_recipe_names_both_assets(self):
         self.assertEqual(set(VERSIONS["bun"]), {"android_asset", "host_asset"})
 
-    def test_zig_built_components_name_a_listed_zig(self):
-        for key in ("opentui", "opencode_pty"):
-            self.assertIn(VERSIONS[key]["zig"], VERSIONS["zig"], key)
+    def test_opencode_pty_names_a_listed_zig(self):
+        self.assertIn(VERSIONS["opencode_pty"]["zig"], VERSIONS["zig"])
 
     def test_zig_entries_are_that_release(self):
         for version, zig in VERSIONS["zig"].items():

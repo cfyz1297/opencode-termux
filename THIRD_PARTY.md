@@ -7,6 +7,7 @@ The generated executable is compiled from, or links, the following upstream work
 - [OpenTUI](https://github.com/anomalyco/opentui), MIT
 - [FFF](https://github.com/dmtrKovalenko/fff), MIT
 - [@parcel/watcher](https://github.com/parcel-bundler/watcher), MIT
+- [@number0/iroh](https://github.com/n0-computer/iroh-ffi), MIT (Android ARM64 binding)
 - [bun-pty](https://github.com/sursaone/bun-pty), MIT
 - [portable-pty](https://github.com/wezterm/wezterm/tree/main/pty), MIT
 - [opencode-pty](https://github.com/anomalyco/opencode/tree/dev/packages/process-daemon), MIT, with

@@ -67,12 +67,29 @@ echo "::group::bun install"
 echo "::endgroup::"
 
 echo "::group::Swap in the Bionic native assets"
+IROH_ARGS=()
+if read -r IROH_URL IROH_SHA < <(python3 - "$NATIVES" <<'PY'
+import json, sys
+iroh = json.load(open(sys.argv[1])).get("iroh")
+if iroh:
+    print(iroh["source_url"], iroh["source_sha256"])
+PY
+); then
+  IROH_ARCHIVE="$WORK/iroh.tgz"
+  IROH_BINDING="$WORK/iroh.android-arm64.node"
+  curl -fsSL --retry 5 --retry-all-errors -o "$IROH_ARCHIVE" "$IROH_URL"
+  printf '%s  %s\n' "$IROH_SHA" "$IROH_ARCHIVE" | sha256sum -c -
+  tar -xOzf "$IROH_ARCHIVE" package/iroh.android-arm64.node > "$IROH_BINDING"
+  python3 "$ROOT/tools/elf_native.py" "$IROH_BINDING" > "$WORK/iroh-elf.json"
+  IROH_ARGS=(--iroh "$IROH_BINDING")
+fi
 python3 "$ROOT/tools/swap_native_assets.py" "$SRC" --versions "$NATIVES" \
   --opentui "$NATIVE/opentui/libopentui.so" \
   --watcher "$NATIVE/watcher/watcher.node" \
   --fff "$NATIVE/fff/libfff_c.so" \
   --rust-pty "$NATIVE/bun-pty/librust_pty_arm64.so" \
   --opencode-pty "$NATIVE/opencode-pty/opencode-pty" \
+  "${IROH_ARGS[@]}" \
   --report "$WORK/swap.json"
 echo "::endgroup::"
 

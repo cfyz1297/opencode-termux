@@ -116,6 +116,17 @@ class SwapTests(unittest.TestCase):
     def test_symlinked_and_stored_copies_count_once(self):
         self.assertEqual(swap.find_packages(self.src, "@opentui/core-linux-arm64"), [self.opentui])
 
+    def test_replaces_the_iroh_binding_when_resolved(self):
+        name = "@number0/iroh-linux-arm64-gnu"
+        binding = "iroh.linux-arm64-gnu.node"
+        iroh = package(self.src / "node_modules" / name, name, "1.2.0", {binding: "glibc iroh"})
+        source = self.src.parent / "iroh.android-arm64.node"
+        source.write_text("bionic iroh")
+        self.replacements["iroh"] = source
+        report = self.run_swap(dict(VERSIONS, iroh={"version": "1.2.0"}))
+        self.assertEqual((iroh / binding).read_text(), "bionic iroh")
+        self.assertEqual(report["assets"][-1]["package"], f"{name}@1.2.0")
+
     @unittest.skipUnless(HARDLINKS, "no hard links on Android")
     def test_bun_cache_is_left_alone(self):
         self.run_swap()

@@ -12,9 +12,9 @@ says where each one's source lives:
 - npm sources: the registry tarball, checked against bun.lock's integrity hash.
 - Bun: the release assets, checked against the release's SHASUMS256.txt.
 
-Zig is a toolchain we choose, not a dependency OpenCode installs: each component
-built with it names one of versions.json's "zig" entries, and resolving fails
-when the component's source asks for a Zig that entry cannot be.
+The Zig downloads are pinned in versions.json. OpenTUI selects its exact Zig
+release from its source; opencode-pty uses the pin in its recipe and checks it
+against upstream's release workflow.
 
 Writes work/natives.json with the fields the build scripts read for each
 component (version, source_url, source_sha256, ...) and where each came from.
@@ -37,7 +37,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from swap_native_assets import ASSETS, PATCHES  # noqa: E402
+from swap_native_assets import ASSETS, IROH_ASSET, PATCHES  # noqa: E402
 
 BUN_RELEASES = "https://github.com/oven-sh/bun/releases/download"
 
@@ -179,7 +179,7 @@ def archive_text(archive: bytes, path: str) -> str | None:
 def zig_needed(key: str, archive: bytes) -> str | None:
     """The Zig a component's source asks for, where it says so."""
     if key == "opentui":
-        # The oldest Zig OpenTUI's build accepts.
+        # OpenTUI's build checks the exact version despite the field name.
         text = archive_text(archive, "packages/native/build.zig.zon")
         pattern = r'\.minimum_zig_version\s*=\s*"([^"]+)"'
     elif key == "opencode_pty":
@@ -197,24 +197,28 @@ def version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in re.findall(r"\d+", version.split("-")[0]))
 
 
-def check_zig(versions: dict, key: str, version: str, archive: bytes) -> None:
-    """Fail now, not after an hour of building, when the Zig versions.json gives a component cannot build it."""
+def resolve_zig(versions: dict, key: str, version: str, archive: bytes) -> str | None:
+    if key == "opentui":
+        needed = zig_needed(key, archive)
+        if not needed:
+            raise ResolveError(f"OpenTUI {version} has no minimum_zig_version in packages/native/build.zig.zon")
+        if needed not in versions["zig"]:
+            raise ResolveError(f"OpenTUI {version} needs Zig {needed}; add it under \"zig\" in versions.json")
+        return needed
+
     pinned = versions[key].get("zig")
     if pinned is None:
-        return
+        return None
     if pinned not in versions["zig"]:
         raise ResolveError(f"versions.json gives {key} Zig {pinned} but has no such entry under \"zig\"")
     needed = zig_needed(key, archive)
     if not needed:
-        return
-    label = {"opentui": "OpenTUI", "opencode_pty": "opencode-pty"}[key]
+        return pinned
     needed_v, pinned_v = version_tuple(needed), version_tuple(pinned)
-    fits = needed_v <= pinned_v
-    if key == "opencode_pty":
-        # Ghostty's requireZig: the same minor version, at least that patch.
-        fits = fits and needed_v[:2] == pinned_v[:2]
-    if not fits:
-        raise ResolveError(f"{label} {version} needs Zig {needed}; versions.json gives it {pinned}")
+    # Ghostty's requireZig: the same minor version, at least that patch.
+    if needed_v > pinned_v or needed_v[:2] != pinned_v[:2]:
+        raise ResolveError(f"opencode-pty {version} needs Zig {needed}; versions.json gives it {pinned}")
+    return pinned
 
 
 def resolve_bun(net: Network, recipe: dict, package_json: dict) -> dict:
@@ -255,11 +259,13 @@ def resolve(source: Path, versions: dict, net: Network) -> dict:
         recipe = versions[key]
         version = single_version(lock, packages)
         entry = {"version": version, "packages": packages}
-        entry.update({k: v for k, v in recipe.items() if k not in ("github", "tag", "npm", "node_addon_api")})
+        entry.update({k: v for k, v in recipe.items() if k not in ("github", "tag", "npm", "node_addon_api", "zig")})
         if "github" in recipe:
             found, archive = resolve_github(net, recipe, version)
             entry.update(found)
-            check_zig(versions, key, version, archive)
+            zig = resolve_zig(versions, key, version, archive)
+            if zig is not None:
+                entry["zig"] = zig
         else:
             npm = recipe["npm"]
             if single_version(lock, [npm]) != version:
@@ -273,6 +279,15 @@ def resolve(source: Path, versions: dict, net: Network) -> dict:
                               "node_addon_api_url": found["source_url"],
                               "node_addon_api_sha256": found["source_sha256"]})
         doc[key] = entry
+
+    # Bun compiles for the host's Linux package. Iroh also publishes an Android
+    # binding at the same lockfile version, so use its contents in that slot.
+    key, host_package, _ = IROH_ASSET
+    if lock_entries(lock, host_package):
+        android_package = "@number0/iroh-android-arm64"
+        version = single_version(lock, [host_package, android_package])
+        doc[key] = {"version": version, "packages": [host_package], "npm": android_package,
+                    **resolve_npm(net, lock, android_package, version)}
     return doc
 
 

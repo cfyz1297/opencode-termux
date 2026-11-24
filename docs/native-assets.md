@@ -9,6 +9,7 @@
 | `@parcel/watcher-linux-arm64-glibc/watcher.node` | `@parcel/watcher` | `liblog.so`, `libdl.so`, `libm.so`, `libc.so` |
 | `bun-pty/rust-pty/target/release/librust_pty_arm64.so` | `bun-pty` | `libdl.so`, `libc.so` |
 | `bun-pty/rust-pty/target/release/librust_pty_arm64_musl.so` | 同上，同一个文件 | `libdl.so`, `libc.so` |
+| `@number0/iroh-linux-arm64-gnu/iroh.linux-arm64-gnu.node`（OpenCode 2.4 起） | 同版本的 `@number0/iroh-android-arm64` | `libdl.so`, `libm.so`, `libc.so` |
 
 bun-pty 0.4.10 起在 Linux 上同时内嵌 musl 版，只在 ld-musl 下加载。它只依赖 `libc.so`，
 与 Android 的同名，`--require-bionic` 审计分不出来，所以同样换成 Bionic 库。
@@ -23,15 +24,14 @@ bun-pty 0.4.10 起在 Linux 上同时内嵌 musl 版，只在 ld-musl 下加载�
   `process-daemon-v{version}`）用 `git ls-remote` 解析出 commit，按 commit 下载归档，记下
   commit 和 SHA-256。
 - npm 源码（`@parcel/watcher` 和它装上的 `node-addon-api`）：registry 的 tarball，对照
-  `bun.lock` 里的 sha512 integrity。
+  `bun.lock` 里的 sha512 integrity。Iroh 的 Android 预编译包也按该校验值验证，
+  打包后在 Termux 中用绑定启动本地 QUIC 端点进行冒烟测试。
 - Bun 底座和编译用的 Bun：版本取 OpenCode `package.json` 的 `packageManager`，归档对照该
   Release 的 `SHASUMS256.txt`。
-- Zig 是我们选的工具链，不是 OpenCode 装的依赖：`versions.json` 的 `zig` 按版本登记
-  归档地址和 SHA-256，用 Zig 编译的组件（OpenTUI、opencode-pty）在自己的配方里写明用哪个，
-  两者可以不同。解析时检查它们是否满足源码的要求：OpenTUI 的 `build.zig.zon` 里的
-  `minimum_zig_version` 不能比它用的新；opencode-pty 要和上游 `release-process-daemon.yml`
-  的 `ZIG_VERSION` 同一个次版本，patch 不低于它（它编译的 Ghostty 只接受这个次版本）。
-  不满足时构建在解析这一步就失败。
+- `versions.json` 的 `zig` 按版本登记归档地址和 SHA-256。OpenTUI 使用 `build.zig.zon`
+  里的 `minimum_zig_version`，其构建要求版本精确匹配。opencode-pty 使用配方固定的 Zig，
+  与上游 `release-process-daemon.yml` 的 `ZIG_VERSION` 保持同一个次版本，patch 不低于它
+  （它编译的 Ghostty 只接受这个次版本）。工具链未登记或不符合要求时，解析会失败。
 
 某次构建实际用的版本、commit 和哈希都记在 Release 的 `BUILD-MANIFEST.json`
 （`natives`）里。产物里的模块名带 Bun 生成的哈希后缀，如 `libopentui-x8k2b6xk.so`。
