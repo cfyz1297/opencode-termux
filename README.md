@@ -7,7 +7,7 @@ Built from OpenCode sources with every native component built for Bionic (iroh u
 Native OpenCode (the AI coding agent CLI) for Android Termux — freshly rebuilt releases that follow upstream tags daily. 安卓 Termux 原生 OpenCode：原生 Bionic 构建，无 glibc、无 proot，跟随官方版本每日发布。Нативный OpenCode (CLI-агент для кодинга) в Termux: сборка под Bionic, без glibc и proot, релизы следуют за апстримом ежедневно.
 
 [![build](https://github.com/cfyz1297/opencode-termux/actions/workflows/build.yml/badge.svg)](https://github.com/cfyz1297/opencode-termux/actions/workflows/build.yml)
-[![release](https://img.shields.io/github/v/release/cfyz1297/opencode-termux?display_name=tag&sort=semver)](https://github.com/cfyz1297/opencode-termux/releases/latest)
+[![release](https://img.shields.io/github/v/release/cfyz1297/opencode-termux?display_name=tag&sort=semver&include_prereleases)](https://github.com/cfyz1297/opencode-termux/releases/latest)
 
 English · [Русский](#русский) · [中文](#中文)
 
